@@ -7,6 +7,8 @@
 
 网页版使用 ONNX Runtime Web (MIT)、fflate (MIT)、Vite (MIT)。ISNet 与 U²-Net 模型使用上游 Apache-2.0 许可。发布包 LICENSES.txt 汇总许可。
 
+界面图标取自 @phosphor-icons/core 2.1.1 (MIT)，仅嵌入本应用使用的图标，许可一并包含在发布包。
+
 网页版的界面、工作流、修补蒙版、灰度引导滤波和 Canvas 模板为本项目实现，不包含上述 Python 实验代码或研究仓库。
 
 festive.png 是为本项目生成的节庆背景：红金摄影棚、空白标题区域、底部展台，无文字、无商标、无商品。实际商品始终从原图抠图后合成。

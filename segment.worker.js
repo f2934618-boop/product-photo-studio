@@ -1,43 +1,9 @@
 import * as ort from 'onnxruntime-web/wasm';
+import { MODEL_INFO as modelInfo, modelBytes } from './model-loader.js';
 
 // Preprocessing follows rembg (MIT). No generative image editing is performed.
 let session, currentModel;
-const modelInfo = {
-  u2netp: { side: 320, bytes: 4574861, version: '8e83ca70' },
-  'isnet-general-use': { side: 1024, bytes: 178648008, version: 'fc16ebd8' },
-};
 const report = (id, message) => self.postMessage({ id, progress: message });
-
-async function modelBytes(base, name, id) {
-  const info = modelInfo[name];
-  const url = new URL(`models/${name}.onnx?v=${info.version}`, base).href;
-  let cache;
-  try {
-    cache = await caches.open('product-studio-models-v1');
-    const hit = await cache.match(url);
-    if (hit) { report(id, '正在加载已缓存的抠图模型…'); return await hit.arrayBuffer(); }
-  } catch { /* Private browsing may disallow persistent caches. */ }
-  report(id, `首次下载模型（约 ${Math.round(info.bytes / 1048576)} MB），之后会复用缓存…`);
-  const response = await fetch(url, { signal: AbortSignal.timeout(600000) });
-  if (!response.ok) throw new Error(`模型下载失败（HTTP ${response.status}），请检查网络后重试。`);
-  const reader = response.body.getReader();
-  const parts = []; let size = 0, last = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    parts.push(value); size += value.length;
-    if (performance.now() - last > 350) {
-      report(id, `下载抠图模型 ${Math.min(99, Math.round(size / info.bytes * 100))}% · ${Math.round(size / 1048576)} / ${Math.round(info.bytes / 1048576)} MB`);
-      last = performance.now();
-    }
-  }
-  if (size !== info.bytes) throw new Error('模型文件不完整，请检查网络后重试。');
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const part of parts) { bytes.set(part, offset); offset += part.length; }
-  try { await cache?.put(url, new Response(bytes, { headers: { 'Content-Type': 'application/octet-stream' } })); } catch {}
-  return bytes.buffer;
-}
 
 function boxMean(input, width, height, radius) {
   const pitch = width + 1;
@@ -89,7 +55,7 @@ self.onmessage = async event => {
       ort.env.wasm.numThreads = 1; // GitHub Pages has no cross-origin isolation headers.
       ort.env.wasm.wasmPaths = new URL('runtime/', base).href;
       ort.env.logLevel = 'error';
-      const bytes = await modelBytes(base, model, id);
+      const bytes = await modelBytes(base, model, message => report(id, message));
       report(id, '正在准备模型，首次加载稍慢…');
       session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'], enableCpuMemArena: false, enableMemPattern: false });
       currentModel = model;

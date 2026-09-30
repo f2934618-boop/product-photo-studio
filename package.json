@@ -7,12 +7,13 @@
     "dev": "vite --host 127.0.0.1",
     "prepare:runtime": "node prepare-runtime.mjs",
     "models": "node download-models.mjs",
-    "build": "npm run prepare:runtime && vite build",
+    "build": "npm run prepare:runtime && vite build && node prepare-model-assets.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "check": "node --check app.js && node --check ai.js && node --check ai-api.js && node --check imaging.js && node --check segment.worker.js",
+    "check": "node --check app.js && node --check ai.js && node --check ai-api.js && node --check imaging.js && node --check segment.worker.js && node --check model-loader.js && node --check storage.js",
     "test": "node --test *.test.mjs"
   },
   "dependencies": {
+    "@phosphor-icons/core": "2.1.1",
     "fflate": "0.8.3",
     "onnxruntime-web": "1.30.0"
   },

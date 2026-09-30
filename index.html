@@ -10,58 +10,62 @@
 <body>
   <aside class="sidebar">
     <a class="brand" href="./" aria-label="商品图工坊首页"><img src="./icon.svg" alt=""><span>商品图工坊<small>PRODUCT STUDIO</small></span></a>
-    <div class="nav-label">创作工具</div>
+    <div class="nav-label">图片工作台</div>
     <nav aria-label="创作工具">
-      <button class="nav-item active" data-mode="cutout"><span class="nav-icon">◩</span>白底精修<span class="mini-tag">本地</span></button>
-      <button class="nav-item" data-mode="poster"><span class="nav-icon">▤</span>封面海报</button>
-      <button class="nav-item" data-mode="suite"><span class="nav-icon">▦</span>详情套图</button>
-      <div class="nav-label ai-nav-label">AI 图片工作流</div>
-      <button class="nav-item" data-mode="ai" data-ai="detail"><span class="nav-icon">✧</span>全品类商品图</button>
-      <button class="nav-item" data-mode="ai" data-ai="style"><span class="nav-icon">◈</span>风格复刻</button>
-      <button class="nav-item" data-mode="ai" data-ai="clothing"><span class="nav-icon">♧</span>服装套图</button>
-      <button class="nav-item" data-mode="ai" data-ai="retouch"><span class="nav-icon">◇</span>批量精修</button>
+      <button class="nav-item active" data-mode="cutout"><i data-icon="selection-background"></i><span>白底精修</span></button>
+      <button class="nav-item" data-mode="poster"><i data-icon="layout"></i><span>封面海报</span></button>
+      <button class="nav-item" data-mode="suite"><i data-icon="stack"></i><span>详情套图</span></button>
+      <div class="nav-label ai-nav-label">AI 创作</div>
+      <button class="nav-item" data-mode="ai" data-ai="detail"><i data-icon="sparkle"></i><span>全品类商品图</span></button>
+      <button class="nav-item" data-mode="ai" data-ai="style"><i data-icon="copy"></i><span>风格复刻</span></button>
+      <button class="nav-item" data-mode="ai" data-ai="clothing"><i data-icon="t-shirt"></i><span>服装套图</span></button>
+      <button class="nav-item" data-mode="ai" data-ai="retouch"><i data-icon="magic-wand"></i><span>批量精修</span></button>
     </nav>
-    <div class="library-head"><span>图片素材</span><span id="itemCount">0</span></div>
-    <button class="upload-small" id="addImages">＋ 添加商品图片</button>
-    <div id="imageList" class="image-list" aria-label="图片素材列表"><p class="library-empty">从一张商品照片开始</p></div>
-    <div class="sidebar-bottom"><span class="status-dot" id="statusDot"></span><span id="connectionStatus">正在准备工作台</span><button id="helpButton" aria-label="使用说明">?</button></div>
+    <div class="library-head"><span>我的素材</span><span id="itemCount">0</span></div>
+    <div id="imageList" class="image-list" aria-label="图片素材列表"></div>
+    <div class="sidebar-bottom"><span class="status-dot" id="statusDot"></span><span id="connectionStatus">浏览器本地处理</span><button id="helpButton" aria-label="使用说明"><i data-icon="question"></i></button></div>
   </aside>
 
   <main>
-    <header class="topbar"><span>工作台 <span class="slash">/</span> <strong id="breadcrumb">白底精修</strong></span><div class="top-actions"><span class="privacy">◎ 图片留在本机</span><button class="button subtle" id="batchExport" disabled>批量导出 <span>↗</span></button></div></header>
+    <header class="topbar"><div class="current-work"><span class="breadcrumb-label">工作台</span><span class="slash">/</span><strong id="breadcrumb">白底精修</strong></div><div class="top-actions"><button class="button icon-only" id="themeToggle" aria-label="切换深色外观" title="切换外观"><i data-icon="moon"></i></button><button class="button icon-only" id="apiSettingsButton" aria-label="模型接口设置" title="模型接口设置"><i data-icon="gear-six"></i></button><button class="button secondary" id="addImages"><i data-icon="upload-simple"></i><span>上传图片</span></button><button class="button secondary" id="batchExport" disabled><i data-icon="stack"></i><span>批量导出</span></button><button class="button primary" id="headerExport" disabled><i data-icon="download-simple"></i><span>下载图片</span></button></div></header>
     <section class="workspace">
-      <div class="page-heading"><div><p class="eyebrow" id="eyebrow">LESS BACKGROUND. MORE PRODUCT.</p><h1 id="pageTitle">让商品，成为主角。</h1><p class="description" id="pageDescription">去掉杂乱背景，保留包装、文字与真实质感。</p></div><span class="local-pill" id="modeTag"><i></i>本地免费处理</span></div>
-      <div id="uploadZone" class="upload-zone" role="button" tabindex="0" aria-label="点击或拖入商品图片"><div class="upload-symbol">↑</div><div><strong>拖入图片，开始制作</strong><p>或点击选择 · 支持粘贴截图 · JPG / PNG / WebP / BMP · 每张不超过 40 MB</p></div><button class="button secondary" id="sampleButton">试试礼盒示例 <span>↗</span></button></div>
+      <div class="page-heading"><div><h1 id="pageTitle">白底精修</h1><p class="description" id="pageDescription">保留商品细节，做一张干净的主图。</p><p id="eyebrow" hidden></p></div><span class="local-pill" id="modeTag">本地免费处理</span><span class="privacy" hidden>图片留在本机</span></div>
       <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/bmp" multiple hidden>
-      <div id="progress" class="progress-panel" role="status" hidden><span class="spinner"></span><div><strong id="progressText">正在抠图</strong><small id="progressDetail">图片在本机处理</small></div><button class="button subtle" id="stopQueue">停止后续图片</button></div>
+      <div id="progress" class="progress-panel" role="status" hidden><span class="progress-indicator"><i data-icon="arrows-clockwise"></i></span><div><strong id="progressText">正在抠图</strong><small id="progressDetail">图片在本机处理</small></div><button class="button subtle" id="stopQueue">取消处理</button></div>
       <div id="errorBanner" class="error-banner" role="alert" hidden></div>
       <div id="downloadShelf" class="download-shelf" aria-label="最近导出的文件" hidden></div>
 
       <div id="editorLayout" class="editor-layout">
         <section class="preview-panel">
-          <div class="preview-toolbar"><div class="segmented" id="previewTabs"><button class="selected" data-view="result">效果图</button><button data-view="compare">左右对比</button><button data-view="original">原图</button></div><span id="imageDimensions" class="muted">等待图片</span></div>
+          <div class="preview-toolbar"><div class="segmented" id="previewTabs"><button class="selected" data-view="result">效果图</button><button data-view="compare">左右对比</button><button data-view="original">原图</button></div><div class="canvas-tools"><button id="undoSettings" class="icon-only button" aria-label="撤销画面调整" title="撤销画面调整" disabled><i data-icon="arrow-counter-clockwise"></i></button><button id="zoomPreview" class="icon-only button" aria-label="放大预览" title="放大预览"><i data-icon="arrows-out"></i></button><span id="imageDimensions" class="muted">等待图片</span></div></div>
           <div id="previewStage" class="preview-stage checker">
-            <div id="emptyState" class="empty-state"><div class="empty-illustration"><span class="box-face"></span><span class="box-ribbon"></span><span class="crop-corner tl"></span><span class="crop-corner tr"></span><span class="crop-corner bl"></span><span class="crop-corner br"></span></div><h2>给商品一个干净的背景</h2><p>上传实拍图，自动识别主体<br>白底主图和促销封面，一处完成</p></div>
+            <div id="emptyState" class="empty-state"><div id="uploadZone" class="upload-zone" role="button" tabindex="0" aria-label="上传商品图片"><span class="upload-mark"><i data-icon="image"></i><b>+</b></span><h2>把商品照片拖到这里</h2><p>自动去背景，保留原图细节</p><span class="button primary">上传图片</span><small>支持粘贴 · JPG / PNG / WebP · 单张最大 40 MB</small></div><button class="text-button" id="sampleButton">查看操作说明</button></div>
             <canvas id="previewCanvas" aria-label="当前商品图片预览" hidden></canvas>
           </div>
-          <div class="preview-footer"><span id="previewInfo">原图保留 · 无水印导出</span><button id="removeItem" class="text-button" disabled>移出素材</button></div>
+          <div id="suiteStrip" class="suite-strip" aria-label="详情套图页面" hidden></div><div class="preview-footer"><span id="previewInfo">原图保留 · 无水印导出</span><button id="removeItem" class="text-button" aria-label="移出素材" disabled><i data-icon="trash"></i><span>移出素材</span></button></div>
         </section>
 
         <aside class="controls" id="cutoutControls">
-          <div class="control-title"><h2>画面设置</h2><span>01 / EDIT</span></div>
-          <div class="field"><label for="modelSelect">抠图模式</label><select id="modelSelect"><option value="isnet-general-use">精细抠图 · 细节优先</option><option value="u2netp">快速抠图 · 轻量省流</option></select><p class="field-help">精细模型首次下载约 171 MB，快速模型约 5 MB。自动缓存，无按张收费。</p><button id="reprocessButton" class="text-button" disabled>用此模式重新抠图 ↻</button></div>
+          <div class="control-title"><h2>画面设置</h2><button class="text-button" id="resetSettings">重置</button></div>
+          <div class="field"><label for="modelSelect">抠图模式</label><select id="modelSelect"><option value="isnet-general-use">精细抠图 · 细节优先</option><option value="u2netp">快速抠图 · 轻量省流</option></select><p class="field-help">精细约 171 MB，快速约 5 MB。仅首次下载，中断可重试续用。</p><button id="reprocessButton" class="text-button" disabled>重新抠图</button></div>
           <div class="field"><label>背景</label><div class="swatches" id="backgroundOptions"><button data-bg="white" class="swatch selected" style="--swatch:#fff" aria-label="纯白背景" title="纯白"><i></i><span>纯白</span></button><button data-bg="transparent" class="swatch" aria-label="透明背景" title="透明"><i class="checker"></i><span>透明</span></button><button data-bg="warm" class="swatch" style="--swatch:#f7f5f0" aria-label="米白背景" title="米白"><i></i><span>米白</span></button><button data-bg="gray" class="swatch" style="--swatch:#ebedef" aria-label="浅灰背景" title="浅灰"><i></i><span>浅灰</span></button></div></div>
           <div class="field-row"><div class="field"><label for="ratioSelect">画布比例</label><select id="ratioSelect"><option value="square">1:1 正方形</option><option value="portrait">3:4 竖版</option><option value="landscape">4:3 横版</option><option value="original">原图比例</option></select></div><div class="field"><label for="sizeSelect">导出尺寸</label><select id="sizeSelect"><option value="800">800 px</option><option value="1200">1200 px</option><option value="1600" selected>1600 px</option><option value="2000">2000 px</option><option value="3000">3000 px</option><option value="original">原图长边</option></select></div></div>
           <div class="field"><div class="range-label"><label for="occupancy">商品占比</label><output id="occupancyValue">85%</output></div><input type="range" id="occupancy" min="50" max="96" value="85"><label class="checkbox-label"><input type="checkbox" id="centerToggle" checked>自动居中，裁掉多余留白</label></div>
-          <div class="repair-callout"><span>边缘还差一点？</span><p>手套、支架可擦除；缺失部分可恢复。</p><button id="repairButton" class="button secondary full" disabled>修补边缘 <span>↗</span></button></div>
+          <details class="adjustments"><summary>构图与光影<i data-icon="sliders-horizontal"></i></summary><div class="adjustment-body">
+          <div class="field"><div class="range-label"><label for="rotation">旋转</label><output id="rotationValue">0°</output></div><input id="rotation" type="range" min="-30" max="30" value="0" step="0.5"></div>
+          <div class="field"><div class="range-label"><label for="offsetX">水平位置</label><output id="offsetXValue">0</output></div><input id="offsetX" type="range" min="-35" max="35" value="0"></div>
+          <div class="field"><div class="range-label"><label for="offsetY">垂直位置</label><output id="offsetYValue">0</output></div><input id="offsetY" type="range" min="-35" max="35" value="0"></div>
+          <div class="field"><div class="range-label"><label for="shadow">落地阴影</label><output id="shadowValue">0%</output></div><input id="shadow" type="range" min="0" max="70" value="0"></div>
+          <div class="field"><div class="range-label"><label for="brightness">亮度</label><output id="brightnessValue">100%</output></div><input id="brightness" type="range" min="80" max="125" value="100"></div>
+          <p class="field-help">也可直接拖动画布中的商品。调整只影响导出，不改动原始文件。</p></div></details><div class="repair-callout"><span>边缘还差一点？</span><p>手套、支架可擦除；缺失部分可恢复。</p><button id="repairButton" class="button secondary full" disabled><i data-icon="eraser"></i>修补边缘</button></div>
           <div class="field format-field"><label for="formatSelect">文件格式</label><select id="formatSelect"><option value="jpg">JPG · 白底商品图</option><option value="png">PNG · 无损图片</option></select></div>
-          <button id="exportButton" class="button primary full" disabled>下载当前图片 <span>↓</span></button>
+          <button id="exportButton" class="button primary full" hidden disabled>下载当前图片 <span>↓</span></button>
           <button id="applyAll" class="text-button full" disabled>将画面设置应用到全部图片</button>
         </aside>
 
         <aside class="controls" id="posterControls" hidden>
-          <div class="control-title"><h2 id="designTitle">封面设计</h2><span>02 / DESIGN</span></div>
-          <div class="field"><label>选择风格</label><div class="template-grid" id="templateOptions"><button class="template selected festive" data-template="festive"><b>好礼</b><span>国庆礼遇</span></button><button class="template cream" data-template="cream"><b>好物</b><span>简约质感</span></button><button class="template forest" data-template="forest"><b>甄选</b><span>自然绿意</span></button><button class="template midnight" data-template="midnight"><b>精选</b><span>深色高级</span></button></div></div>
+          <div class="control-title"><h2 id="designTitle">封面设计</h2><span class="small-label">实时预览</span></div>
+          <div class="field"><label>选择风格</label><div class="template-grid" id="templateOptions"><button class="template festive selected" data-template="festive" aria-label="国庆礼遇"><canvas width="120" height="150" aria-hidden="true"></canvas><span><b>国庆礼遇</b><small>红金主视觉</small></span></button><button class="template cream " data-template="cream" aria-label="简约质感"><canvas width="120" height="150" aria-hidden="true"></canvas><span><b>简约质感</b><small>留白杂志版</small></span></button><button class="template forest " data-template="forest" aria-label="自然绿意"><canvas width="120" height="150" aria-hidden="true"></canvas><span><b>自然绿意</b><small>上下分栏</small></span></button><button class="template midnight " data-template="midnight" aria-label="深色高级"><canvas width="120" height="150" aria-hidden="true"></canvas><span><b>深色高级</b><small>聚焦商品</small></span></button></div></div>
           <div class="field"><label for="posterTitle">主标题</label><textarea id="posterTitle" rows="2" maxlength="40">唐山特产
 国庆好礼</textarea></div>
           <div class="field"><label for="posterSubtitle">副标题</label><input id="posterSubtitle" maxlength="60" value="把心意，装进礼盒"></div>
@@ -69,13 +73,19 @@
           <div class="field"><label for="posterPoints">商品卖点（每行一条）</label><textarea id="posterPoints" rows="3" maxlength="150" placeholder="仅填写你已确认的商品信息"></textarea></div>
           <div class="field-row"><div class="field"><label for="posterRatio">画布比例</label><select id="posterRatio"><option value="portrait">3:4 竖版</option><option value="square">1:1 方图</option><option value="story">9:16 长图</option></select></div><div class="field"><label for="posterSize">导出长边</label><select id="posterSize"><option value="1600">1600 px</option><option value="2400">2400 px</option><option value="3200">3200 px</option></select></div></div>
           <div class="field"><div class="range-label"><label for="posterScale">商品大小</label><output id="posterScaleValue">80%</output></div><input id="posterScale" type="range" min="50" max="96" value="80"></div>
-          <div class="field"><button id="paletteButton" class="text-button">＋ 从参考图提取配色</button><input id="paletteInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><p id="paletteStatus" class="field-help">只提取配色，不复制图中商品与文字。</p></div>
-          <button id="designExport" class="button primary full" disabled>下载封面海报 <span>↓</span></button><p id="designHelp" class="field-help">本地模板排版，商品使用原图抠图素材。</p>
+          <details class="adjustments"><summary>位置与细节裁切<i data-icon="crop"></i></summary><div class="adjustment-body">
+          <div class="field"><div class="range-label"><label for="posterX">水平位置</label><output id="posterXValue">0</output></div><input id="posterX" type="range" min="-30" max="30" value="0"></div>
+          <div class="field"><div class="range-label"><label for="posterY">垂直位置</label><output id="posterYValue">0</output></div><input id="posterY" type="range" min="-25" max="25" value="0"></div>
+          <div class="field"><div class="range-label"><label for="detailZoom">细节放大</label><output id="detailZoomValue">1.8×</output></div><input id="detailZoom" type="range" min="1.2" max="3.5" step="0.1" value="1.8"></div>
+          <div class="field"><div class="range-label"><label for="detailX">细节取景 · 水平</label><output id="detailXValue">50%</output></div><input id="detailX" type="range" min="0" max="100" value="50"></div>
+          <div class="field"><div class="range-label"><label for="detailY">细节取景 · 垂直</label><output id="detailYValue">50%</output></div><input id="detailY" type="range" min="0" max="100" value="50"></div>
+          <p class="field-help">详情套图可在画布下方逐页查看。细节取景只裁切原图，不生成商品内容。</p></div></details><div class="field"><button id="paletteButton" class="text-button">从参考图提取配色</button><input id="paletteInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><p id="paletteStatus" class="field-help">只提取配色，不复制图中商品与文字。</p></div>
+          <button id="designExport" class="button primary full" hidden disabled>下载封面海报 <span>↓</span></button><p id="designHelp" class="field-help">本地模板排版，商品使用原图抠图素材。</p>
         </aside>
       </div>
 
       <section id="aiPanel" class="ai-panel" hidden>
-        <div class="ai-intro"><span class="ai-star">✧</span><div><h2 id="aiHeading">全品类商品图</h2><p id="aiIntro">选商品、规划套图、逐张生成。接入自己的模型接口后使用，费用由接口服务商收取。</p></div></div>
+        <div class="ai-intro"><span class="ai-star" data-icon="sparkle"></span><div><h2 id="aiHeading">全品类商品图</h2><p id="aiIntro">选商品、规划套图、逐张生成。接入自己的模型接口后使用，费用由接口服务商收取。</p></div></div>
         <div class="ai-grid"><div class="ai-form">
           <div class="field"><label for="aiMode">创作类型</label><select id="aiMode"><option value="detail">全品类商品套图</option><option value="scene">商品场景 / 广告封面</option><option value="style">参考图风格复刻</option><option value="retouch">批量商品精修</option><option value="clothing">服装套图 / 模特试穿</option></select></div>
           <div class="field"><div class="range-label"><label>本次商品素材</label><button class="text-button" id="selectAiAll">选中全部</button></div><div id="aiProducts" class="ai-products"></div><p id="aiProductHint" class="field-help">同一商品最多 6 张不同角度素材；批量精修按每件商品分别处理。</p></div>
@@ -85,7 +95,7 @@
           <div class="field-row"><div class="field"><label for="aiRatio">尺寸比例</label><select id="aiRatio"><option value="portrait">2:3 竖图</option><option value="square">1:1 方图</option><option value="landscape">3:2 横图</option></select></div><div class="field"><label for="aiCount">生成数量</label><select id="aiCount"><option value="1">1 张</option><option value="2">2 张</option><option value="3">3 张</option><option value="4" selected>4 张</option><option value="6">6 张</option><option value="8">8 张</option></select></div></div>
           <div class="field-row"><div class="field"><label for="aiQuality">图像质量</label><select id="aiQuality"><option value="auto">模型默认</option><option value="high">高质量</option><option value="medium">标准</option><option value="low">快速预览</option></select></div><div class="field"><label for="clothingSet">服装套图类型</label><select id="clothingSet"><option value="model">模特试穿套图</option><option value="basic">白底 / 人台 / 细节</option></select></div></div>
           <div class="field"><div class="plan-actions"><button id="makePlan" class="button secondary">生成默认分镜</button><button id="analyzeProduct" class="button secondary" disabled>AI 分析并规划</button></div><label for="aiPlan">套图分镜（每行一张，可编辑）</label><textarea id="aiPlan" rows="5" maxlength="4000" placeholder="生成分镜后可逐行修改，再开始生成图片。"></textarea><p class="field-help">默认分镜只提供排版方向；AI 分析会调用视觉模型，具体商品信息请检查后使用。</p></div>
-          <p id="aiSelected" class="field-help">先在左侧选择商品图片。</p><button id="aiGenerate" class="button primary full" disabled>按分镜生成图片 <span>↗</span></button><button id="cancelAi" class="text-button full" hidden>停止生成</button><p class="field-help">点击 AI 分析或生成会将所选商品图、参考图及要求发送到配置的 API。停止不会撤销已发生的接口费用。</p>
+          <p id="aiSelected" class="field-help">先在左侧选择商品图片。</p><button id="aiGenerate" class="button primary full" disabled>按分镜生成图片</button><button id="cancelAi" class="text-button full" hidden>停止生成</button><p class="field-help">点击 AI 分析或生成会将所选商品图、参考图及要求发送到配置的 API。停止不会撤销已发生的接口费用。</p>
         </div><div class="ai-settings">
           <h3>连接你的模型接口</h3><p>支持 OpenAI 兼容或 Gemini 格式。服务商须允许浏览器跨域访问。密钥只保存在本标签页内存，刷新即清除。</p>
           <div class="field"><label for="apiProvider">接口格式</label><select id="apiProvider"><option value="openai">OpenAI Images Edit 兼容</option><option value="gemini">Gemini 原生</option></select></div>
@@ -96,14 +106,16 @@
           <button id="saveApi" class="button secondary full">保存连接配置</button><p id="apiStatus" class="field-help">尚未连接。抠图和模板海报不需要 API。</p>
           <div class="ai-note"><b>关于商品一致性</b><p>生成式模型可能改动细字、图案或结构，请逐张检查。要求商品完全保真时，使用白底精修或本地海报。</p></div>
         </div></div>
-        <div class="ai-result-actions"><h3>生成结果</h3><button id="aiDownloadAll" class="button secondary" disabled>打包下载 ZIP</button></div><div id="aiResults" class="ai-results"></div>
+        <div id="aiConnectionNotice" class="connection-notice"><i data-icon="gear-six"></i><div><strong>先连接生图模型</strong><p>连接一次，即可使用场景、风格复刻与模特套图。</p></div><button id="connectModel" class="button secondary">连接模型</button></div><div class="ai-result-actions"><h3>生成结果</h3><button id="aiDownloadAll" class="button secondary" disabled>打包下载 ZIP</button></div><div id="aiResults" class="ai-results"><div id="aiEmpty" class="ai-empty"><i data-icon="images"></i><h3>你的创作，从这里展开</h3><p>选择商品素材，编辑分镜，再生成整套图片。</p></div></div>
       </section>
-      <footer class="workspace-footer"><span>为真实的商品，留一份真实的细节。</span><button class="text-button" id="aboutButton">关于与开源项目 ↗</button></footer>
+      <footer class="workspace-footer"><span id="workspaceHint">拖入照片或粘贴截图，开始制作</span><button class="text-button" id="aboutButton">使用说明与开源许可</button></footer>
     </section>
   </main>
 
-  <dialog id="repairDialog"><div class="dialog-top"><div><h2>修补商品边缘</h2><p>擦除手套或多余背景，也能恢复被误删的商品。</p></div><button class="icon-button" id="closeRepair" aria-label="关闭修边">×</button></div><div class="repair-tools"><div class="segmented"><button class="selected" data-tool="erase">擦除</button><button data-tool="restore">恢复</button><button data-tool="polygon">圈选保留</button></div><label>笔刷 <input id="brushSize" type="range" min="4" max="180" value="40"></label><label>缩放 <select id="repairZoom"><option value="1">适合窗口</option><option value="2">200%</option><option value="3">300%</option></select></label><button id="undoMask" class="button subtle" disabled>撤销</button><button id="resetMask" class="button subtle">恢复自动抠图</button></div><div class="repair-canvas-wrap checker" id="repairCanvasWrap"><canvas id="repairCanvas" aria-label="边缘修补画布"></canvas></div><div class="dialog-bottom"><span id="repairHint">在不需要的部分涂抹即可擦除。</span><button id="applyPolygon" class="button secondary" hidden>完成圈选</button><button id="saveMask" class="button primary">保存修补</button></div></dialog>
-  <dialog id="helpDialog"><div class="dialog-top"><h2>商品图工坊</h2><button class="icon-button" id="closeHelp" aria-label="关闭说明">×</button></div><div class="help-content"><p>打开网页即可使用。抠图与模板海报在当前浏览器里完成，无按张收费，不需要安装软件。</p><ol><li>拖入图片，或粘贴截图，自动去除背景。第一次使用会下载并缓存模型。</li><li>检查边缘。手套等相连物体可用“修补边缘”擦除，或圈住商品保留。</li><li>设置白底和尺寸，下载单图或批量 ZIP。</li><li>切换“封面海报”填写标题；“详情套图”导出封面、商品展示和细节，填写卖点会增加商品信息页。</li></ol><p>图片保存在此浏览器的本地存储，刷新可继续。换设备、无痕模式或清理网站数据会失去素材，请及时下载。下载文件在浏览器下载目录；移出素材不影响你的原图和已下载文件。</p><p>原图长边导出上限为 6000 px。原始色彩与拍摄角度保留，抠图不会自动修正透视或重绘包装。AI 创作需自备接口，可能按服务商标准计费，且生成式模型可能改动细节。</p><hr><p>抠图使用 U²-Net / ISNet 与 ONNX Runtime Web，预处理参考 <a href="https://github.com/danielgatis/rembg" target="_blank" rel="noreferrer">rembg</a>。第三方授权见项目 THIRD_PARTY.md。</p><p>本应用独立实现界面与海报模板，参考 PicsetAI 公开功能流程，与该网站无关联。</p></div></dialog>
+  <dialog id="repairDialog"><div class="dialog-top"><div><h2>修补商品边缘</h2><p>擦除手套或多余背景，也能恢复被误删的商品。</p></div><button class="icon-button" id="closeRepair" aria-label="关闭修边"><i data-icon="x"></i></button></div><div class="repair-tools"><div class="segmented"><button class="selected" data-tool="erase">擦除</button><button data-tool="restore">恢复</button><button data-tool="polygon">圈选保留</button></div><label>笔刷 <input id="brushSize" type="range" min="4" max="180" value="40"></label><label>缩放 <select id="repairZoom"><option value="1">适合窗口</option><option value="2">200%</option><option value="3">300%</option></select></label><button id="undoMask" class="button subtle" disabled>撤销</button><button id="resetMask" class="button subtle">恢复自动抠图</button></div><div class="repair-canvas-wrap checker" id="repairCanvasWrap"><canvas id="repairCanvas" aria-label="边缘修补画布"></canvas></div><div class="dialog-bottom"><span id="repairHint">在不需要的部分涂抹即可擦除。</span><button id="applyPolygon" class="button secondary" hidden>完成圈选</button><button id="saveMask" class="button primary">保存修补</button></div></dialog>
+  <dialog id="helpDialog"><div class="dialog-top"><h2>商品图工坊</h2><button class="icon-button" id="closeHelp" aria-label="关闭说明"><i data-icon="x"></i></button></div><div class="help-content"><p>打开网页即可使用。抠图与模板海报在当前浏览器里完成，无按张收费，不需要安装软件。</p><ol><li>拖入图片，或粘贴截图，自动去除背景。第一次使用会下载并缓存模型。</li><li>检查边缘。手套等相连物体可用“修补边缘”擦除，或圈住商品保留。</li><li>设置白底和尺寸，下载单图或批量 ZIP。</li><li>切换“封面海报”填写标题；“详情套图”导出封面、商品展示和细节，填写卖点会增加商品信息页。</li></ol><p>图片保存在此浏览器的本地存储，刷新可继续。换设备、无痕模式或清理网站数据会失去素材，请及时下载。下载文件在浏览器下载目录；移出素材不影响你的原图和已下载文件。</p><p>原图长边导出上限为 6000 px。原始色彩与拍摄角度保留，抠图不会自动修正透视或重绘包装。AI 创作需自备接口，可能按服务商标准计费，且生成式模型可能改动细节。</p><hr><p>抠图使用 U²-Net / ISNet 与 ONNX Runtime Web，预处理参考 <a href="https://github.com/danielgatis/rembg" target="_blank" rel="noreferrer">rembg</a>。第三方授权见项目 THIRD_PARTY.md。</p><p>本应用独立实现界面与海报模板，参考 PicsetAI 公开功能流程，与该网站无关联。</p></div></dialog>
+  <dialog id="apiDialog"><div class="dialog-top"><div><h2>模型连接</h2><p>密钥只在当前标签页使用</p></div><button id="closeApi" class="icon-only button" aria-label="关闭模型设置"><i data-icon="x"></i></button></div><div id="apiDialogBody"></div></dialog>
+  <dialog id="previewDialog"><div class="dialog-top"><h2>图片预览</h2><button class="icon-only button" id="closePreview" aria-label="关闭图片预览"><i data-icon="x"></i></button></div><div class="preview-large checker"><canvas id="largeCanvas" aria-label="放大图片预览"></canvas></div><div class="dialog-bottom"><span>可缩放浏览器检查包装文字与边缘</span></div></dialog>
   <div id="toast" role="status" class="toast" hidden></div>
 </body>
 </html>
