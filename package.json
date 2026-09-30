@@ -1,0 +1,22 @@
+{
+  "name": "product-photo-studio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "prepare:runtime": "node prepare-runtime.mjs",
+    "models": "node download-models.mjs",
+    "build": "npm run prepare:runtime && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "check": "node --check app.js && node --check ai.js && node --check ai-api.js && node --check imaging.js && node --check segment.worker.js",
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "onnxruntime-web": "1.30.0"
+  },
+  "devDependencies": {
+    "vite": "8.3.1"
+  }
+}
