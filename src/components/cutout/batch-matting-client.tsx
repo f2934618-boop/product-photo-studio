@@ -214,7 +214,8 @@ export function BatchMattingClient() {
       throw new RemoteCutoutError(
         data.error || `抠图失败（${response.status}）`,
         response.status,
-        response.status >= 500 && response.status <= 599
+        response.status === 401 ||
+          (response.status >= 500 && response.status <= 599)
       );
     }
     if (!data.url) {
@@ -240,7 +241,28 @@ export function BatchMattingClient() {
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
+      const runLocal = async (): Promise<ResultImage> => {
+        const localUrl = await cutoutLocally(file, whiteBackground, ratio, (value) => {
+          setProgress(
+            Math.round(((index + value / 100) / files.length) * 100)
+          );
+        });
+        localResultUrls.current.push(localUrl);
+        return {
+          id: `local-cut-${index}`,
+          url: localUrl,
+          name: resultName(file.name, index),
+          status: "done",
+        };
+      };
       try {
+        // 访客直接在浏览器本地处理：不需要登录，也不会把原图上传到服务器。
+        if (!user?.email) {
+          next.push(await runLocal());
+          setResults([...next]);
+          setProgress(Math.round(((index + 1) / files.length) * 100));
+          continue;
+        }
         const data = await requestRemote(file);
         next.push({
           id: data.id || `cut-${index}`,
@@ -260,20 +282,11 @@ export function BatchMattingClient() {
               );
         if (remoteError.allowLocalFallback) {
           try {
-            const localUrl = await cutoutLocally(file, whiteBackground, ratio, (value) => {
-              setProgress(
-                Math.round(((index + value / 100) / files.length) * 100)
-              );
-            });
-            localResultUrls.current.push(localUrl);
-            next.push({
-              id: `local-cut-${index}`,
-              url: localUrl,
-              name: resultName(file.name, index),
-              status: "done",
-            });
-          } catch {
-            messages.push(remoteError.message);
+            next.push(await runLocal());
+          } catch (localError) {
+            messages.push(
+              localError instanceof Error ? localError.message : remoteError.message
+            );
             next.push({
               id: `cut-${index}`,
               url: previews[index],
@@ -282,7 +295,7 @@ export function BatchMattingClient() {
             });
           }
         } else {
-          // 401 / 402 / 429 等业务错误必须直接展示，不得借本地模型绕过。
+          // 付费、封禁、限流等业务错误直接展示；本地模型不消耗云端资源。
           messages.push(remoteError.message);
           next.push({
             id: `cut-${index}`,
@@ -291,7 +304,6 @@ export function BatchMattingClient() {
             status: "error",
           });
           if (
-            remoteError.status === 401 ||
             remoteError.status === 402 ||
             remoteError.status === 403 ||
             remoteError.status === 429

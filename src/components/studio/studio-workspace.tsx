@@ -627,11 +627,33 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
 
     const completed: ResultImage[] = [];
     const fileErrors: string[] = [];
+    const runLocalWhiteBackground = async (
+      file: File,
+      index: number
+    ): Promise<ResultImage> => {
+      const url = await cutoutLocally(file, true, ratio, (value) => {
+        setProgress(
+          Math.round(((index + value / 100) / files.length) * 100)
+        );
+      });
+      return {
+        id: `local-white-background-${index}`,
+        url,
+        status: "done",
+      };
+    };
     try {
       const headers = await authHeader();
       for (let index = 0; index < files.length; index++) {
         const file = files[index];
         try {
+          // 白底抠图对访客开放，直接在浏览器执行，原图无需上传。
+          if (refinementOperation === "white-background" && !user?.email) {
+            completed.push(await runLocalWhiteBackground(file, index));
+            setResults([...completed]);
+            setProgress(Math.round(((index + 1) / files.length) * 100));
+            continue;
+          }
           const fd = new FormData();
           fd.append("image", file);
           if (user?.email) fd.append("email", user.email);
@@ -684,6 +706,26 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
           const requestError = cause instanceof StudioRequestError
             ? cause
             : new StudioRequestError(cause instanceof Error ? cause.message : `${operation.label}失败`, null);
+          const canUseLocalWhiteBackground =
+            refinementOperation === "white-background" &&
+            (requestError.status === null ||
+              requestError.status === 401 ||
+              (requestError.status >= 500 && requestError.status <= 599));
+          if (canUseLocalWhiteBackground) {
+            try {
+              completed.push(await runLocalWhiteBackground(file, index));
+              setResults([...completed]);
+              setProgress(Math.round(((index + 1) / files.length) * 100));
+              continue;
+            } catch (localCause) {
+              setError(
+                localCause instanceof Error
+                  ? localCause.message
+                  : "浏览器本地白底抠图失败"
+              );
+              break;
+            }
+          }
           const mustStop =
             requestError.status === null ||
             requestError.status === 401 ||
