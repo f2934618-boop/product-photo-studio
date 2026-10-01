@@ -31,6 +31,20 @@ const CUTOUT_BACKEND = "cutout_backend";
 const REPLICATE_TOKEN_ENC = "replicate_token_enc";
 const REPLICATE_MODEL = "replicate_cutout_model";
 
+// ---- Cloudflare Workers AI「AI 商品重拍」配置。 ----
+// Account ID / 模型名不是密钥，明文存储；API Token 与其它供应商密钥一样
+// 由浏览器 RSA 加密传输、服务端 AES-256-GCM 加密落库，永不回显。
+const CLOUDFLARE_ACCOUNT_ID = "cloudflare_ai_account_id";
+const CLOUDFLARE_TOKEN_ENC = "cloudflare_ai_token_enc";
+const CLOUDFLARE_MODEL = "cloudflare_ai_model";
+export const DEFAULT_CLOUDFLARE_AI_MODEL =
+  "@cf/black-forest-labs/flux-2-klein-4b";
+export const CLOUDFLARE_AI_MODELS = [
+  DEFAULT_CLOUDFLARE_AI_MODEL,
+  "@cf/black-forest-labs/flux-2-klein-9b",
+  "@cf/black-forest-labs/flux-2-dev",
+] as const;
+
 // ---- 微信公众号「扫码关注即登录」配置(后台可配,env 兜底)。 ----
 // AppID/Token/邮箱域名为非敏感明文;AppSecret 走 AES 加密存储,绝不回显。
 const WECHAT_APPID = "wechat_appid";
@@ -262,6 +276,82 @@ export async function saveReplicateToken(plain: string): Promise<void> {
 /** 保存 Replicate 抠图模型 slug。 */
 export async function saveReplicateModel(model: string): Promise<void> {
   await setSetting(REPLICATE_MODEL, model.trim());
+}
+
+// ---------------------------------------------------------------------------
+// Cloudflare Workers AI 商品重拍配置。DB 优先 → env 兜底。
+// ---------------------------------------------------------------------------
+export type CloudflareAISettings = {
+  accountId: string;
+  apiToken: string;
+  model: (typeof CLOUDFLARE_AI_MODELS)[number];
+  source: "db" | "env" | "none";
+  ready: boolean;
+};
+
+function normalizeCloudflareModel(
+  value: string | null | undefined
+): CloudflareAISettings["model"] {
+  const model = (value || "").trim();
+  return (CLOUDFLARE_AI_MODELS as readonly string[]).includes(model)
+    ? (model as CloudflareAISettings["model"])
+    : DEFAULT_CLOUDFLARE_AI_MODEL;
+}
+
+export async function getCloudflareAISettings(): Promise<CloudflareAISettings> {
+  const envAccountId = (process.env.CLOUDFLARE_ACCOUNT_ID || "").trim();
+  const envToken = (process.env.CLOUDFLARE_AI_API_TOKEN || "").trim();
+  const envModel = normalizeCloudflareModel(
+    process.env.CLOUDFLARE_IMAGE_MODEL || process.env.CLOUDFLARE_AI_MODEL
+  );
+  let accountId = envAccountId;
+  let apiToken = envToken;
+  let model = envModel;
+  let source: CloudflareAISettings["source"] = envToken ? "env" : "none";
+
+  if (dbEnabled) {
+    const dbAccountId = (await getSetting(CLOUDFLARE_ACCOUNT_ID))?.trim();
+    const encryptedToken = await getSetting(CLOUDFLARE_TOKEN_ENC);
+    const dbToken = encryptedToken ? decryptAtRest(encryptedToken) : null;
+    const dbModel = await getSetting(CLOUDFLARE_MODEL);
+    if (dbAccountId) accountId = dbAccountId;
+    if (dbToken?.trim()) {
+      apiToken = dbToken.trim();
+      source = "db";
+    }
+    if (dbModel) model = normalizeCloudflareModel(dbModel);
+  }
+
+  return {
+    accountId,
+    apiToken,
+    model,
+    source,
+    ready: !!(accountId && apiToken),
+  };
+}
+
+export async function saveCloudflareAI(opts: {
+  accountId?: string;
+  apiToken?: string;
+  model?: string;
+}): Promise<void> {
+  if (typeof opts.accountId === "string" && opts.accountId.trim()) {
+    const accountId = opts.accountId.trim();
+    if (!/^[a-fA-F0-9]{32}$/.test(accountId)) {
+      throw new Error("Cloudflare Account ID 应为 32 位十六进制字符");
+    }
+    await setSetting(CLOUDFLARE_ACCOUNT_ID, accountId);
+  }
+  if (typeof opts.apiToken === "string" && opts.apiToken.trim()) {
+    await setSetting(
+      CLOUDFLARE_TOKEN_ENC,
+      encryptAtRest(opts.apiToken.trim())
+    );
+  }
+  if (typeof opts.model === "string" && opts.model.trim()) {
+    await setSetting(CLOUDFLARE_MODEL, normalizeCloudflareModel(opts.model));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -622,6 +712,7 @@ function deriveAlipayPublicKey(privateKey: string): string {
 export async function getAdminView() {
   const s = await getOpenAISettings();
   const c = await getCutoutSettings();
+  const cf = await getCloudflareAISettings();
   const w = await getWechatSettings();
   const p = await getPaymentSettings();
   const baseUrlPlain = await readOpenAIBaseUrlPlain();
@@ -642,6 +733,12 @@ export async function getAdminView() {
     cutoutReplicateReady: !!c.replicateToken,
     cutoutReplicateModel: c.replicateModel,
     cutoutReplicateTokenMasked: maskKey(c.replicateToken),
+    // Cloudflare Workers AI 商品重拍：Token 不回显；Account ID / 模型仅管理员可见。
+    cloudflareAiReady: cf.ready,
+    cloudflareAiAccountId: cf.accountId,
+    cloudflareAiModel: cf.model,
+    cloudflareAiTokenMasked: maskKey(cf.apiToken),
+    cloudflareAiSource: cf.source,
     // 微信登录:非敏感明文回显;AppSecret 只回掩码 + 是否就绪
     wechatAppid: w.appid,
     wechatToken: w.token,

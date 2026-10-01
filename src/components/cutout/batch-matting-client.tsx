@@ -44,6 +44,11 @@ type CutoutResponse = {
   user?: SessionUser | null;
 };
 
+type ProductReshootResponse = {
+  image?: string;
+  error?: string;
+};
+
 class RemoteCutoutError extends Error {
   constructor(
     message: string,
@@ -131,6 +136,10 @@ export function BatchMattingClient() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [prompt, setPrompt] = useState("");
   const [ratio, setRatio] = useState("3:4");
+  const [mode, setMode] = useState<"cutout" | "reshoot">("cutout");
+  const [aiQuality, setAiQuality] = useState<"standard" | "quality">(
+    "standard"
+  );
   const [whiteBackground, setWhiteBackground] = useState(true);
   const [busy, setBusy] = useState(false);
   const [zipping, setZipping] = useState(false);
@@ -224,6 +233,46 @@ export function BatchMattingClient() {
     return data;
   }
 
+  async function requestProductReshoot(file: File) {
+    const fd = new FormData();
+    fd.append("image", file);
+    fd.append("ratio", ratio);
+    fd.append("quality", aiQuality);
+    if (prompt.trim()) fd.append("prompt", prompt.trim());
+
+    let response: Response;
+    try {
+      response = await fetch("/api/product-reshoot", {
+        method: "POST",
+        body: fd,
+      });
+    } catch {
+      throw new RemoteCutoutError("高质量生成服务连接失败，请稍后重试", null, false);
+    }
+
+    let data: ProductReshootResponse = {};
+    try {
+      data = (await response.json()) as ProductReshootResponse;
+    } catch {
+      // 统一在下方按 HTTP 状态生成可读错误。
+    }
+    if (!response.ok) {
+      throw new RemoteCutoutError(
+        data.error || `高质量生成失败（${response.status}）`,
+        response.status,
+        false
+      );
+    }
+    if (!data.image) {
+      throw new RemoteCutoutError(
+        data.error || "高质量生成服务未返回图片",
+        response.status,
+        false
+      );
+    }
+    return data.image;
+  }
+
   async function runMatting() {
     if (!files.length) {
       setErrors(["请先上传待抠图片"]);
@@ -256,6 +305,18 @@ export function BatchMattingClient() {
         };
       };
       try {
+        if (mode === "reshoot") {
+          const image = await requestProductReshoot(file);
+          next.push({
+            id: `reshoot-${index}-${Date.now()}`,
+            url: image,
+            name: resultName(file.name, index),
+            status: "done",
+          });
+          setResults([...next]);
+          setProgress(Math.round(((index + 1) / files.length) * 100));
+          continue;
+        }
         // 访客直接在浏览器本地处理：不需要登录，也不会把原图上传到服务器。
         if (!user?.email) {
           next.push(await runLocal());
@@ -306,7 +367,8 @@ export function BatchMattingClient() {
           if (
             remoteError.status === 402 ||
             remoteError.status === 403 ||
-            remoteError.status === 429
+            remoteError.status === 429 ||
+            remoteError.status === 503
           ) {
             setResults([...next]);
             setErrors([...new Set(messages)]);
@@ -361,9 +423,9 @@ export function BatchMattingClient() {
   return (
     <div className="studio-page">
       <section className="studio-hero">
-        <span className="studio-kicker"><Sparkles />AI 批量抠图</span>
-        <h1>批量自动抠图，快速输出透明底或白底图</h1>
-        <p>自动识别商品主体并去除背景，支持透明底、白底、统一比例与批量下载</p>
+        <span className="studio-kicker"><Sparkles />商品白底图</span>
+        <h1>快速抠图或 AI 商品重拍</h1>
+        <p>快速模式保留原图像素；AI 重拍会清除手持与街景，并生成棚拍白底和自然接地阴影</p>
       </section>
 
       <section className="studio-workspace">
@@ -385,18 +447,46 @@ export function BatchMattingClient() {
             />
 
             <section className="studio-card studio-form-card">
+              <div className="studio-field">
+                <label>处理模式</label>
+                <div className="studio-segmented">
+                  <button
+                    type="button"
+                    className={mode === "cutout" ? "is-active" : ""}
+                    onClick={() => setMode("cutout")}
+                  >
+                    快速抠图
+                  </button>
+                  <button
+                    type="button"
+                    className={mode === "reshoot" ? "is-active" : ""}
+                    onClick={() => {
+                      setMode("reshoot");
+                      setWhiteBackground(true);
+                    }}
+                  >
+                    AI 商品重拍
+                  </button>
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {mode === "cutout"
+                    ? "浏览器本地处理，速度快，商品内容保持原样。"
+                    : "生成式重拍会补全遮挡并改善构图、灯光和阴影，包装文字可能有细微变化。"}
+                </p>
+              </div>
+
               <div className="studio-field studio-prompt-field">
-                <div className="studio-label-row"><label>边缘处理</label></div>
+                <div className="studio-label-row"><label>{mode === "reshoot" ? "补充要求（选填）" : "边缘处理"}</label></div>
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                   rows={4}
-                  placeholder="默认保留发丝、透明材质和商品边缘细节"
+                  placeholder={mode === "reshoot" ? "例如：保持正面视角，阴影更轻" : "默认保留发丝、透明材质和商品边缘细节"}
                 />
                 <button
                   className="studio-ai-write"
                   type="button"
-                  onClick={() => setPrompt("保留发丝、半透明材质、镂空、细小配件和真实边缘，主体外内容全部移除。")}
+                  onClick={() => setPrompt(mode === "reshoot" ? "保持商品原有视角和包装细节，使用柔和棚拍灯光与轻微接地阴影。" : "保留发丝、半透明材质、镂空、细小配件和真实边缘，主体外内容全部移除。")}
                 >
                   <Wand2 />AI帮写
                 </button>
@@ -404,12 +494,24 @@ export function BatchMattingClient() {
 
               <div className="studio-two-fields">
                 <SelectField label="尺寸比例" value={ratio} onChange={setRatio} options={RATIO_OPTIONS} />
-                <SelectField
-                  label="输出背景"
-                  value={whiteBackground ? "白色背景" : "透明背景"}
-                  onChange={(value) => setWhiteBackground(value === "白色背景")}
-                  options={["透明背景", "白色背景"]}
-                />
+                {mode === "reshoot" ? (
+                  <SelectField
+                    label="AI 质量"
+                    value={aiQuality}
+                    onChange={(value) => setAiQuality(value === "quality" ? "quality" : "standard")}
+                    options={[
+                      { value: "standard", label: "标准 4B（推荐）" },
+                      { value: "quality", label: "精细 9B（额度消耗更高）" },
+                    ]}
+                  />
+                ) : (
+                  <SelectField
+                    label="输出背景"
+                    value={whiteBackground ? "白色背景" : "透明背景"}
+                    onChange={(value) => setWhiteBackground(value === "白色背景")}
+                    options={["透明背景", "白色背景"]}
+                  />
+                )}
               </div>
 
               {errors.length > 0 && (
@@ -426,7 +528,11 @@ export function BatchMattingClient() {
                 onClick={runMatting}
               >
                 {busy ? <Loader2 className="animate-spin" /> : files.length ? <Sparkles /> : <Upload />}
-                {busy ? `处理中 ${progress}%` : files.length ? `开始抠图（${files.length} 张）` : "请先上传图片"}
+                {busy
+                  ? `${mode === "reshoot" ? "AI 重拍中" : "处理中"} ${progress}%`
+                  : files.length
+                    ? `${mode === "reshoot" ? "开始 AI 商品重拍" : "开始抠图"}（${files.length} 张）`
+                    : "请先上传图片"}
               </button>
               {files.length === 0 && (
                 <p id="batch-matting-start-hint" className="batch-start-hint">

@@ -10,6 +10,7 @@ import {
   saveCutoutBackend,
   saveReplicateToken,
   saveReplicateModel,
+  saveCloudflareAI,
   saveWechatLogin,
   saveWechatSecret,
   savePayEnabled,
@@ -66,6 +67,10 @@ export async function POST(req: Request) {
     encryptedKey?: string;
     keyPlain?: string; // HTTP 无 crypto.subtle 时的明文兜底(服务端仍加密落库)
     encryptedReplicateToken?: string;
+    cloudflareAccountId?: string;
+    cloudflareModel?: string;
+    encryptedCloudflareToken?: string;
+    cloudflareTokenPlain?: string; // HTTP 自托管兜底；仍会 AES 加密落库
     signupBonus?: number;
     // 微信登录(明文)
     wechatAppid?: string;
@@ -210,6 +215,36 @@ export async function POST(req: Request) {
         );
       }
       await saveReplicateToken(plain);
+    }
+    if (
+      typeof body.cloudflareAccountId === "string" ||
+      typeof body.cloudflareModel === "string"
+    ) {
+      await saveCloudflareAI({
+        accountId: body.cloudflareAccountId,
+        model: body.cloudflareModel,
+      });
+    }
+    if (body.encryptedCloudflareToken) {
+      const plain = await decryptFromClient(body.encryptedCloudflareToken);
+      if (!plain || plain.length < 8) {
+        return NextResponse.json(
+          { error: "解密后的 Cloudflare API Token 无效" },
+          { status: 400 }
+        );
+      }
+      await saveCloudflareAI({ apiToken: plain });
+    } else if (
+      typeof body.cloudflareTokenPlain === "string" &&
+      body.cloudflareTokenPlain.trim()
+    ) {
+      if (body.cloudflareTokenPlain.trim().length < 8) {
+        return NextResponse.json(
+          { error: "Cloudflare API Token 无效" },
+          { status: 400 }
+        );
+      }
+      await saveCloudflareAI({ apiToken: body.cloudflareTokenPlain.trim() });
     }
 
     // ---- 微信登录:明文字段(空串自动跳过) ----
