@@ -107,9 +107,33 @@ async function asDataUrl(response: Response): Promise<string> {
   if (!mime.startsWith("image/")) {
     throw new Error("高质量生成服务返回了无效图片");
   }
+  // 生成模型偶尔会把白底输出成 251–254 的近白色。将几乎无色的高亮背景
+  // 归一为纯白，保留商品颜色、纹理与阴影，同时满足电商白底图要求。
+  const { data, info } = await sharp(output)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  for (let index = 0; index < data.length; index += info.channels) {
+    const red = data[index];
+    const green = data[index + 1];
+    const blue = data[index + 2];
+    const alpha = data[index + 3];
+    const highest = Math.max(red, green, blue);
+    const lowest = Math.min(red, green, blue);
+    if (alpha >= 250 && lowest >= 245 && highest - lowest <= 12) {
+      data[index] = 255;
+      data[index + 1] = 255;
+      data[index + 2] = 255;
+    }
+  }
+
   // 下载文件统一使用 .png；这里也统一编码，避免 WebP/JPEG 内容被保存成
   // PNG 扩展名后在部分图片工具中打不开。
-  const png = await sharp(output).png({ compressionLevel: 7 }).toBuffer();
+  const png = await sharp(data, {
+    raw: { width: info.width, height: info.height, channels: info.channels },
+  })
+    .png({ compressionLevel: 7 })
+    .toBuffer();
   return `data:image/png;base64,${png.toString("base64")}`;
 }
 
