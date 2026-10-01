@@ -107,7 +107,10 @@ async function asDataUrl(response: Response): Promise<string> {
   if (!mime.startsWith("image/")) {
     throw new Error("高质量生成服务返回了无效图片");
   }
-  return `data:${mime};base64,${output.toString("base64")}`;
+  // 下载文件统一使用 .png；这里也统一编码，避免 WebP/JPEG 内容被保存成
+  // PNG 扩展名后在部分图片工具中打不开。
+  const png = await sharp(output).png({ compressionLevel: 7 }).toBuffer();
+  return `data:image/png;base64,${png.toString("base64")}`;
 }
 
 export async function reshootProductWithCloudflare(opts: {

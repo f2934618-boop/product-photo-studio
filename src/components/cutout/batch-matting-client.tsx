@@ -138,7 +138,7 @@ export function BatchMattingClient() {
   const [ratio, setRatio] = useState("3:4");
   const [mode, setMode] = useState<"cutout" | "reshoot">("cutout");
   const [aiQuality, setAiQuality] = useState<"standard" | "quality">(
-    "standard"
+    "quality"
   );
   const [whiteBackground, setWhiteBackground] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -500,8 +500,8 @@ export function BatchMattingClient() {
                     value={aiQuality}
                     onChange={(value) => setAiQuality(value === "quality" ? "quality" : "standard")}
                     options={[
-                      { value: "standard", label: "标准 4B（推荐）" },
-                      { value: "quality", label: "精细 9B（额度消耗更高）" },
+                      { value: "quality", label: "精细 9B（推荐）" },
+                      { value: "standard", label: "标准 4B（速度更快）" },
                     ]}
                   />
                 ) : (
