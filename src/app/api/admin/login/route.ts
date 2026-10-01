@@ -12,6 +12,7 @@ import { clientIp } from "@/lib/ip";
 import { supabaseEnabled } from "@/lib/auth-mode";
 import { nativeUserEmail } from "@/lib/native-auth";
 import { getUserRole } from "@/lib/db";
+import { shouldUseSecureCookie } from "@/lib/cookie-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,15 +64,19 @@ export async function POST(req: Request) {
   res.cookies.set(ADMIN_COOKIE, signSession(Date.now()), {
     httpOnly: true,
     sameSite: "lax",
+    secure: shouldUseSecureCookie(req),
     path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
-    // 不设 secure:自托管常跑在 http://IP 上,secure 会让 cookie 被丢弃。
   });
   return res;
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(ADMIN_COOKIE, "", { path: "/", maxAge: 0 });
+  res.cookies.set(ADMIN_COOKIE, "", {
+    path: "/",
+    maxAge: 0,
+    secure: shouldUseSecureCookie(req),
+  });
   return res;
 }

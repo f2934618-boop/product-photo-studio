@@ -42,6 +42,8 @@ docker compose up -d --build
 
 完整部署、GHCR 镜像、更新与备份命令见 [DEPLOY.md](DEPLOY.md)。GitHub Pages 只能运行静态网页，不能运行本项目的 API、Postgres 与图片处理后端；GitHub 仓库用于保存源码并构建 Docker 镜像。
 
+要获得可直接分享的公网 HTTPS 地址，可使用 [Railway + Neon 部署说明](docs/DEPLOY_RAILWAY.md)。
+
 ## 模型配置
 
 首次打开网站会进入配置向导，也可以在 `/admin` 设置：

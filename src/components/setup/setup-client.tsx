@@ -7,6 +7,7 @@ import { KeyRound, ShieldCheck, Sparkles, Loader2, Check, Copy } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-context";
+import { isStrongAdminPassword } from "@/lib/setup-validation";
 
 // 首启配置向导表单(单页)。
 // - 未配置的自托管新实例才会渲染到这里(服务端 /setup 已做「已配置→跳首页」门控)。
@@ -18,8 +19,9 @@ type Txt = {
   subtitle: string;
   finishHint: string;
   apiKeyLabel: string;
+  apiKeyOptional: string;
   apiKeyPlaceholder: string;
-  apiKeyHelp: string; // 含微信号,由 JSX 渲染加粗
+  apiKeyHelp: string;
   licenseLabel: string;
   licenseOptional: string;
   licensePlaceholder: string;
@@ -38,7 +40,6 @@ type Txt = {
   secureNote: string;
   submit: string;
   submitting: string;
-  needApiKey: string;
   saved: string;
   savedHint: string;
   savedPwLabel: string;
@@ -55,8 +56,9 @@ const ZH: Txt = {
   subtitle: "只需填几项,配置完成即可开始使用。",
   finishHint: "以下配置会安全地保存到你的实例,无需改代码或环境变量。",
   apiKeyLabel: "OpenAI API Key",
-  apiKeyPlaceholder: "粘贴你的 sk-... ",
-  apiKeyHelp: "不知道 API Key 怎么获取?可联系作者微信 xingze063,或付费由作者代为提供 / 配置。",
+  apiKeyOptional: "选填 · 可跳过",
+  apiKeyPlaceholder: "可留空,以后在管理后台添加",
+  apiKeyHelp: "不填也能完成初始化并免费使用浏览器本地白底抠图。AI 生图和视频会明确提示未配置,以后可在管理后台添加 OpenAI / Replicate Key。",
   licenseLabel: "License Key",
   licenseOptional: "选填 · Pro 授权",
   licensePlaceholder: "NOVA-XXXX-XXXX-XXXX-XXXX",
@@ -66,16 +68,15 @@ const ZH: Txt = {
   siteNamePlaceholder: "例如:我的商图工作台",
   siteNameHelp: "用于后续白标展示,可稍后再改。",
   adminPwLabel: "管理员密码",
-  adminPwRecommended: "建议设置",
-  adminPwPlaceholder: "设置进入后台的密码(至少 6 位)",
+  adminPwRecommended: "必填",
+  adminPwPlaceholder: "至少 10 位,且包含 3 类字符",
   adminPw2Placeholder: "再次输入确认",
   adminPwHelp: "用于登录管理后台(改配置 / 提示词 / 品牌 / Logo)。请牢记,后续凭它进入 /admin。",
-  needAdminPw: "管理员密码至少 6 位",
+  needAdminPw: "管理员密码至少 10 位,并包含大写字母、小写字母、数字、符号中的至少 3 类",
   adminPwMismatch: "两次输入的密码不一致",
-  secureNote: "API Key 经加密安全存储,不会明文外泄。",
+  secureNote: "管理员密码仅保存安全哈希;填写的 API Key 会加密存储。",
   submit: "保存并开始使用",
   submitting: "正在保存…",
-  needApiKey: "请填写有效的 OpenAI API Key",
   saved: "配置完成!",
   savedHint: "请先保存好下面的管理员密码,再进入。",
   savedPwLabel: "管理员密码",
@@ -93,9 +94,10 @@ const EN: Txt = {
   finishHint:
     "These settings are stored securely on your instance — no code or env changes needed.",
   apiKeyLabel: "OpenAI API Key",
-  apiKeyPlaceholder: "Paste your sk-...",
+  apiKeyOptional: "Optional · Skip for now",
+  apiKeyPlaceholder: "Leave blank and add it later in Admin",
   apiKeyHelp:
-    "Not sure how to get an API Key? Contact the author on WeChat xingze063, or pay the author to provide/configure one.",
+    "You can finish setup without a key and use the free in-browser background remover. AI image and video tools will clearly show that their provider is not configured; add OpenAI / Replicate keys in Admin later.",
   licenseLabel: "License Key",
   licenseOptional: "Optional · Pro license",
   licensePlaceholder: "NOVA-XXXX-XXXX-XXXX-XXXX",
@@ -106,17 +108,18 @@ const EN: Txt = {
   siteNamePlaceholder: "e.g. My Product Studio",
   siteNameHelp: "Used for white-labeling later. You can change it anytime.",
   adminPwLabel: "Admin password",
-  adminPwRecommended: "Recommended",
-  adminPwPlaceholder: "Set a password for the admin console (min 6 chars)",
+  adminPwRecommended: "Required",
+  adminPwPlaceholder: "10+ characters using at least 3 character types",
   adminPw2Placeholder: "Re-enter to confirm",
   adminPwHelp:
     "Used to sign in to the admin console (settings / prompts / brand / logo). Keep it safe — you'll use it to enter /admin.",
-  needAdminPw: "Admin password must be at least 6 characters",
+  needAdminPw:
+    "Use at least 10 characters and 3 of: uppercase, lowercase, number, symbol",
   adminPwMismatch: "Passwords do not match",
-  secureNote: "Your API Key is encrypted at rest and never exposed in plaintext.",
+  secureNote:
+    "Your admin password is stored as a secure hash; any API Key is encrypted at rest.",
   submit: "Save & get started",
   submitting: "Saving…",
-  needApiKey: "Please enter a valid OpenAI API Key",
   saved: "All set!",
   savedHint: "Save your admin password below before continuing.",
   savedPwLabel: "Admin password",
@@ -129,8 +132,6 @@ const EN: Txt = {
   savedEnter: "I've saved it — enter admin",
   genericError: "Save failed, please try again.",
 };
-
-const WECHAT_ID = "xingze063";
 
 export function SetupClient({ brand }: { brand: string }) {
   const { locale } = useI18n();
@@ -165,11 +166,7 @@ export function SetupClient({ brand }: { brand: string }) {
 
   async function submit() {
     setError(null);
-    if (apiKey.trim().length < 8) {
-      setError(t.needApiKey);
-      return;
-    }
-    if (adminPw.length < 6) {
+    if (!isStrongAdminPassword(adminPw)) {
       setError(t.needAdminPw);
       return;
     }
@@ -205,9 +202,6 @@ export function SetupClient({ brand }: { brand: string }) {
       setBusy(false);
     }
   }
-
-  // 帮助文案里把微信号加粗渲染(zh/en 通用:按微信号切分前后两段)。
-  const [helpBefore, helpAfter] = t.apiKeyHelp.split(WECHAT_ID);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-c-bg px-4 py-10">
@@ -278,12 +272,14 @@ export function SetupClient({ brand }: { brand: string }) {
             </div>
           ) : (
             <div className="space-y-5">
-              {/* OpenAI API Key(必填) */}
+              {/* OpenAI API Key(选填；可先用浏览器本地免费能力) */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-c-text">
                   <KeyRound className="h-4 w-4 text-acc" />
                   {t.apiKeyLabel}
-                  <span className="text-c-danger">*</span>
+                  <span className="rounded-full bg-c-subtle px-2 py-0.5 text-[10.5px] font-medium text-c-text3">
+                    {t.apiKeyOptional}
+                  </span>
                 </label>
                 <Input
                   type="password"
@@ -291,13 +287,10 @@ export function SetupClient({ brand }: { brand: string }) {
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder={t.apiKeyPlaceholder}
-                  error={!!error && apiKey.trim().length < 8}
                   disabled={busy}
                 />
                 <p className="text-[12px] leading-relaxed text-c-text3">
-                  {helpBefore}
-                  <span className="font-semibold text-c-text2">{WECHAT_ID}</span>
-                  {helpAfter}
+                  {t.apiKeyHelp}
                 </p>
               </div>
 
@@ -342,7 +335,7 @@ export function SetupClient({ brand }: { brand: string }) {
                 </p>
               </div>
 
-              {/* 管理员密码(建议设置,后台入口) */}
+              {/* 管理员密码(必填,后台入口) */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-[13px] font-semibold text-c-text">
                   <KeyRound className="h-4 w-4 text-acc" />
@@ -369,7 +362,7 @@ export function SetupClient({ brand }: { brand: string }) {
                   value={adminPw}
                   onChange={(e) => setAdminPw(e.target.value)}
                   placeholder={t.adminPwPlaceholder}
-                  error={!!error && adminPw.length > 0 && adminPw.length < 6}
+                  error={!!error && !isStrongAdminPassword(adminPw)}
                   disabled={busy}
                 />
                 <Input

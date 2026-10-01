@@ -101,6 +101,41 @@ fi
 
 cd "$DIR"
 
+# 首次安装自动生成数据库密码和服务端加密密钥；更新时保留已有非空值。
+# 不依赖 openssl：极简系统可回退到 python3 或 /dev/urandom。
+random_hex() {
+  local bytes="$1"
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex "$bytes"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$bytes" <<'PY'
+import secrets, sys
+print(secrets.token_hex(int(sys.argv[1])))
+PY
+  else
+    od -An -N "$bytes" -tx1 /dev/urandom | tr -d ' \n'
+  fi
+}
+
+ensure_env_secret() {
+  local key="$1" bytes="$2" value
+  if grep -qE "^${key}=.+" .env 2>/dev/null; then
+    return 0
+  fi
+  value="$(random_hex "$bytes")"
+  if grep -qE "^${key}=" .env 2>/dev/null; then
+    sed -i "s/^${key}=.*/${key}=${value}/" .env
+  else
+    printf '%s=%s\n' "$key" "$value" >> .env
+  fi
+  echo "→ 已生成 $key / generated $key"
+}
+
+touch .env
+ensure_env_secret POSTGRES_PASSWORD 24
+ensure_env_secret SETTINGS_SECRET 32
+chmod 600 .env 2>/dev/null || true
+
 # 端口:优先级 环境变量 > 已保存端口(.env)> 自动检测(仅首次)。
 # 更新时沿用已保存端口 —— 避免"检测到应用自己的旧容器占着 80"而把端口误换成 8080。
 if [ -z "${HTTP_PORT:-}" ] && [ -f .env ]; then
@@ -130,7 +165,6 @@ if [ -z "${HTTP_PORT:-}" ]; then
 fi
 # 持久化端口到 .env(compose 自动读取),以后更新沿用同一端口,不再变来变去。
 PORT_TO_SAVE="${HTTP_PORT:-80}"
-touch .env
 if grep -qE '^HTTP_PORT=' .env 2>/dev/null; then
   sed -i "s/^HTTP_PORT=.*/HTTP_PORT=$PORT_TO_SAVE/" .env
 else

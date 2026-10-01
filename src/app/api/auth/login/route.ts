@@ -9,6 +9,7 @@ import { getUser, getUserPasswordHash } from "@/lib/db";
 import { verifyPassword } from "@/lib/pw";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/ip";
+import { shouldUseSecureCookie } from "@/lib/cookie-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
   res.cookies.set(USER_COOKIE, signUserSession(email, Date.now()), {
     httpOnly: true,
     sameSite: "lax",
+    secure: shouldUseSecureCookie(req),
     path: "/",
     maxAge: Math.floor(USER_TTL_MS / 1000),
   });

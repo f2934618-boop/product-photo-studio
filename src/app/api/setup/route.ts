@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 // ---------------------------------------------------------------------------
 // 首启配置向导落库接口。**首启专用、无需登录,但必须自锁**:
 //   - 仅「未配置」的实例可写(applySetup 内部用 isConfigured() 判定);
-//   - 已配置(含 NOVARYNS_EDITION=cloud 官方云、或已填 OpenAI Key)→ 403,写完即锁。
+//   - 已配置(含 NOVARYNS_EDITION=cloud、setup_completed、或旧版已填 Key)→ 403;
+//   - OpenAI Key 可留空,但必须设置强管理员密码,写完即锁。
 // 因此我们两站(env NOVARYNS_EDITION=cloud)永远返回 403,向导对线上站完全无害。
 // ---------------------------------------------------------------------------
 export async function POST(req: Request) {

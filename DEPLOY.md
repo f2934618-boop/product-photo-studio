@@ -2,6 +2,8 @@
 
 GitHub 只保存代码并通过 Actions 构建容器镜像。GitHub Pages、静态网页托管或仓库本身不能运行本项目的 API、Postgres、图片处理和持久化存储；完整功能需要一台安装了 Docker 的 Linux 主机。
 
+需要直接给他人使用的公网 HTTPS 地址时，按 [Railway + Neon 部署说明](docs/DEPLOY_RAILWAY.md) 操作；仓库已包含单实例 Docker 构建和健康检查配置。
+
 ## 最短部署
 
 服务器建议至少 2 GB 内存、20 GB 可用磁盘，并开放 80 端口。
