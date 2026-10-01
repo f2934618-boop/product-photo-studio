@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { authHeader } from "@/lib/supabase";
+import { BRAND } from "@/lib/brand";
 
 type BatchResult = {
   id: string;
@@ -192,7 +193,7 @@ export function BatchStudioClient() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `Picset-批量任务-${Date.now()}.zip`;
+    anchor.download = `${BRAND}-批量任务-${Date.now()}.zip`;
     anchor.click();
     URL.revokeObjectURL(url);
   }

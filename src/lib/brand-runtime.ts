@@ -54,8 +54,12 @@ export async function getRuntimeBrand(): Promise<RuntimeBrand> {
       dbLogo = "";
     }
   }
+  // 已部署实例可能仍保留旧站名；迁移时把旧默认名视为“未覆盖”。
+  const normalizedDbName = ["picset", "picset ai"].includes(dbName.toLowerCase())
+    ? ""
+    : dbName;
   return {
-    name: dbName || BRAND,
+    name: normalizedDbName || BRAND,
     logo: dbLogo || BRAND_LOGO,
     logoHasText: dbLogo ? false : BRAND_LOGO_HAS_TEXT,
   };

@@ -12,7 +12,6 @@ import {
   Image as ImageIcon,
   Images,
   Languages,
-  Layers,
   Menu,
   PanelLeftClose,
   PenTool,
@@ -28,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { useBrand } from "@/lib/brand-context";
 
 type NavItem = {
   href: string;
@@ -38,7 +38,7 @@ type NavItem = {
 };
 
 const ITEMS: NavItem[] = [
-  { href: "/studio-genesis", label: "全品类商品图", icon: Layers, aliases: ["/suite"] },
+  { href: "/batch-matting", label: "商品白底图", icon: Scissors, aliases: ["/cutout", "/batch-cutout"] },
   { href: "/aesthetic-mirror", label: "风格复刻", icon: ImageIcon, aliases: ["/style", "/style-copy"] },
   { href: "/sku-replace", label: "SKU 替换", icon: Replace, badge: "NEW", aliases: ["/fuse"] },
   { href: "/clothing-studio", label: "服装组图", icon: Shirt, aliases: ["/tryon", "/garment", "/garment3d", "/clothing-group"] },
@@ -47,7 +47,6 @@ const ITEMS: NavItem[] = [
   { href: "/batch-translation", label: "图片翻译", icon: Languages, aliases: ["/image-translate"] },
   { href: "/canvas-studio", label: "万能画布", icon: PenTool, badge: "Beta", aliases: ["/canvas"] },
   { href: "/video-studio", label: "电商视频", icon: Play, badge: "Beta", aliases: ["/generate", "/ecommerce-video"] },
-  { href: "/batch-matting", label: "批量抠图", icon: Scissors, aliases: ["/cutout", "/batch-cutout"] },
   { href: "/pricing", label: "套餐价格", icon: CreditCard, aliases: ["/plans"] },
   { href: "/developer-api", label: "API接入", icon: CodeXml, aliases: ["/api-access"] },
   { href: "/invite", label: "邀请有礼", icon: Gift },
@@ -62,10 +61,12 @@ function destinationFor(path: string, item: NavItem) {
 }
 
 function Brand({ mobile = false, collapsed = false }: { mobile?: boolean; collapsed?: boolean }) {
+  const { name: brandName } = useBrand();
+
   return (
     <Link
       href="/"
-      aria-label="Picset 首页"
+      aria-label={`${brandName} 首页`}
       className={cn(
         mobile
           ? "flex h-16 min-w-0 items-center gap-2.5 text-[#18181b] no-underline"
@@ -86,7 +87,7 @@ function Brand({ mobile = false, collapsed = false }: { mobile?: boolean; collap
       >
         <Sparkles aria-hidden="true" className={mobile ? "h-5 w-5" : undefined} />
       </span>
-      <strong className={mobile ? "truncate text-lg font-extrabold tracking-[-.6px]" : undefined}>Picset</strong>
+      <strong className={mobile ? "truncate text-lg font-extrabold tracking-[-.6px]" : undefined}>{brandName}</strong>
     </Link>
   );
 }

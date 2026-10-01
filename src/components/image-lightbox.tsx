@@ -21,7 +21,7 @@ export function ImageLightbox({
   src,
   alt = "",
   onClose,
-  downloadName = "picset",
+  downloadName = "商品图",
   checker = false,
 }: {
   src: string;

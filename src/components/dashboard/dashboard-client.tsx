@@ -774,7 +774,7 @@ function SingleCard({ a }: { a: Artwork }) {
             variant="secondary"
             size="sm"
             disabled={a.status !== "completed"}
-            onClick={() => downloadImage(a.image, `picset-${a.id}`)}
+            onClick={() => downloadImage(a.image, `商品图-${a.id}`)}
           >
             <Download className="h-3.5 w-3.5" />
             {t("dash.export")}
@@ -915,7 +915,7 @@ function SuiteBatchCard({ items }: { items: Artwork[] }) {
             {it.status === "completed" && (
               <button
                 type="button"
-                onClick={() => downloadImage(it.image, `picset-${it.id}`)}
+                onClick={() => downloadImage(it.image, `商品图-${it.id}`)}
                 title={t("dash.export")}
                 className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-card/85 text-foreground opacity-0 shadow transition-opacity hover:bg-card group-hover/thumb:opacity-100"
               >

@@ -4,8 +4,13 @@
 // 用法:
 //   1) TSX 里 import BRAND / BRAND_LOGO
 //   2) i18n 字典里写 "{brand}" 占位符,translate() 自动替换
+const configuredBrandName = (process.env.NEXT_PUBLIC_BRAND_NAME ?? "").trim();
+const legacyBrandNames = new Set(["picset", "picset ai"]);
+
 export const BRAND: string =
-  (process.env.NEXT_PUBLIC_BRAND_NAME ?? "").trim() || "Picset";
+  configuredBrandName && !legacyBrandNames.has(configuredBrandName.toLowerCase())
+    ? configuredBrandName
+    : "唐山小满生活超市";
 
 // Logo 图片路径(/public/ 下的文件)。国内站设 /logo-starzeco.png,海外默认 /logo.png。
 // 同一个值被用于:导航栏 Logo 组件 + <link rel="icon"> 浏览器 tab icon。

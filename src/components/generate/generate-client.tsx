@@ -1003,7 +1003,7 @@ export function GenerateClient({
                       onClick={() =>
                         images
                           .filter((im) => im.id.startsWith("gen-"))
-                          .forEach((im, i) => downloadImage(im.url, `picset-${i + 1}`))
+                          .forEach((im, i) => downloadImage(im.url, `商品图-${i + 1}`))
                       }
                       className="inline-flex items-center gap-1.5 rounded-[9px] border border-c-border2 px-3 py-1.5 text-[12.5px] font-medium text-c-text2 transition-colors hover:bg-c-subtle2"
                     >
@@ -1077,7 +1077,7 @@ export function GenerateClient({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                downloadImage(image.url, `picset-${i + 1}`);
+                                downloadImage(image.url, `商品图-${i + 1}`);
                               }}
                               className="flex items-center gap-1.5 rounded-[8px] bg-white/90 px-3 py-1.5 text-[12px] font-medium text-slate-900 hover:bg-white"
                             >
@@ -1240,7 +1240,7 @@ export function GenerateClient({
           src={cdnUrl(viewing.url)}
           alt={viewing.prompt}
           onClose={() => setViewing(null)}
-          downloadName="picset-生图"
+          downloadName="商品图"
         />
       )}
     </div>

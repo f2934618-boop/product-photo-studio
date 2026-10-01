@@ -11,6 +11,7 @@ import {
   type DragEvent, type ReactNode,
 } from "react";
 import { cn } from "@/lib/utils";
+import { BRAND } from "@/lib/brand";
 
 type StudioMode = "assist" | "direct" | "remix";
 type AssetKind = "image" | "video" | "audio";
@@ -305,7 +306,7 @@ export function VideoStudio() {
       const blobUrl = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");
       anchor.href = blobUrl;
-      anchor.download = `picset-video-${Date.now()}.mp4`;
+      anchor.download = `${BRAND}-视频-${Date.now()}.mp4`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();

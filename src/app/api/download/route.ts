@@ -34,7 +34,7 @@ function allowed(u: URL): boolean {
 export async function GET(request: Request) {
   const reqUrl = new URL(request.url);
   const raw = reqUrl.searchParams.get("u");
-  const name = (reqUrl.searchParams.get("n") || "picset.png").replace(
+  const name = (reqUrl.searchParams.get("n") || "product-photo.png").replace(
     /[^\w.\-]+/g,
     "_"
   );

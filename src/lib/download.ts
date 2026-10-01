@@ -16,7 +16,7 @@ export function downloadImage(url: string, _baseName?: string) {
   const host = (
     typeof window !== "undefined" && window.location.hostname
       ? window.location.hostname
-      : "picset"
+      : "product-photo"
   ).replace(/[^\w.\-]+/g, "_");
   const name = `${host}_${y}_${md}_${rand}.png`;
   const a = document.createElement("a");
