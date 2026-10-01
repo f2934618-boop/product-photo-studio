@@ -43,7 +43,6 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
 # Local media storage (used when R2 is not configured)
 RUN mkdir -p /data/media && chown -R nextjs:nodejs /data
-VOLUME /data
 
 USER nextjs
 EXPOSE 3000
