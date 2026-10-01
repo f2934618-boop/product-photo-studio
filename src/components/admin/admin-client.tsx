@@ -204,9 +204,27 @@ export function AdminClient() {
 
   if (status === "loading") {
     return (
-      <div className="container flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        校验管理员权限…
+      <div className="container flex min-h-[60vh] items-center justify-center px-4">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          className="w-full max-w-sm rounded-2xl border border-c-border2 bg-c-card p-6 shadow-btn"
+        >
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-zinc-100 text-zinc-700">
+              <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-c-text">正在验证管理员身份</p>
+              <p className="mt-1 text-[13px] text-c-text3">正在确认登录状态，请稍候…</p>
+            </div>
+          </div>
+          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+            <div className="h-full w-2/3 animate-pulse rounded-full bg-zinc-700" />
+          </div>
+          <span className="sr-only">校验管理员权限中</span>
+        </div>
       </div>
     );
   }

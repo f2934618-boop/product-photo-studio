@@ -417,10 +417,22 @@ export function BatchMattingClient() {
                   {errors.map((message) => <div key={message}>{message}</div>)}
                 </div>
               )}
-              <button className="studio-primary" type="button" disabled={busy} onClick={runMatting}>
-                {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                {busy ? `处理中 ${progress}%` : "开始抠图"}
+              <button
+                className="studio-primary batch-start-button"
+                type="button"
+                disabled={busy || files.length === 0}
+                aria-busy={busy}
+                aria-describedby={files.length === 0 ? "batch-matting-start-hint" : undefined}
+                onClick={runMatting}
+              >
+                {busy ? <Loader2 className="animate-spin" /> : files.length ? <Sparkles /> : <Upload />}
+                {busy ? `处理中 ${progress}%` : files.length ? `开始抠图（${files.length} 张）` : "请先上传图片"}
               </button>
+              {files.length === 0 && (
+                <p id="batch-matting-start-hint" className="batch-start-hint">
+                  上传 1–50 张图片后即可开始处理
+                </p>
+              )}
             </section>
           </div>
 

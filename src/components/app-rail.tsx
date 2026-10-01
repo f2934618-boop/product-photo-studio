@@ -8,6 +8,7 @@ import {
   CreditCard,
   Diamond,
   Gift,
+  Headset,
   Image as ImageIcon,
   Images,
   Languages,
@@ -169,15 +170,24 @@ export function AppRail() {
 
       <header className="sticky top-0 z-[70] flex h-16 items-center justify-between border-b border-zinc-200 bg-[#f5f5f6] px-4 min-[761px]:!hidden">
         <Brand mobile />
-        <button
-          type="button"
-          className="grid h-10 w-10 place-items-center rounded-xl border border-zinc-200 bg-white text-zinc-800 shadow-sm"
-          aria-label={mobileOpen ? "关闭导航" : "打开导航"}
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((open) => !open)}
-        >
-          {mobileOpen ? <X aria-hidden="true" className="h-5 w-5" /> : <Menu aria-hidden="true" className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/contact"
+            aria-label="联系我们"
+            className="grid h-10 w-10 place-items-center rounded-xl border border-zinc-200 bg-white text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50 active:bg-zinc-100"
+          >
+            <Headset aria-hidden="true" className="h-5 w-5" />
+          </Link>
+          <button
+            type="button"
+            className="grid h-10 w-10 place-items-center rounded-xl border border-zinc-200 bg-white text-zinc-800 shadow-sm"
+            aria-label={mobileOpen ? "关闭导航" : "打开导航"}
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen((open) => !open)}
+          >
+            {mobileOpen ? <X aria-hidden="true" className="h-5 w-5" /> : <Menu aria-hidden="true" className="h-5 w-5" />}
+          </button>
+        </div>
       </header>
 
       {mobileOpen && (

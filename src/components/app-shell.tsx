@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Link
         href="/contact"
         aria-label="联系我们"
-        className="group fixed bottom-6 right-6 z-50 flex h-14 items-center justify-center gap-2 rounded-full bg-[#18181b] px-4 text-white shadow-lg transition-transform hover:scale-105 hover:shadow-xl active:scale-95"
+        className="group fixed bottom-6 right-6 z-50 flex h-14 items-center justify-center gap-2 rounded-full bg-[#18181b] px-4 text-white shadow-lg transition-transform hover:scale-105 hover:shadow-xl active:scale-95 max-[760px]:hidden"
       >
         <Headset aria-hidden="true" className="h-6 w-6 shrink-0" />
         <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-300 group-hover:max-w-[100px]">联系我们</span>

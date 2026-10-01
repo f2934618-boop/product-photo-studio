@@ -295,6 +295,8 @@ html.picset-sidebar-collapsed { --picset-sidebar: 64px; }
 .studio-primary:hover { background: #27272a; }
 .studio-primary:disabled { cursor: wait; opacity: .72; }
 .studio-primary svg { width: 17px; height: 17px; }
+.batch-start-button:disabled:not([aria-busy="true"]) { cursor: not-allowed; opacity: .46; box-shadow: none; }
+.batch-start-hint { margin-top: 8px !important; color: #71717a; font-size: 11px; line-height: 16px; text-align: center; }
 .studio-results-card { display: flex; min-width: 0; min-height: 600px; flex-direction: column; gap: 16px; overflow: hidden; padding: 24px; }
 .studio-results-card > header { display: flex; min-height: 43px; flex: none; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .studio-download-all { display: inline-flex; height: 36px; align-items: center; gap: 6px; border: 1px solid #e4e4e7; border-radius: 10px; background: #fff; padding: 0 12px; color: #27272a; font-size: 12px; font-weight: 650; cursor: pointer; }
