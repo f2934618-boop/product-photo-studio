@@ -1,23 +1,49 @@
 {
-  "name": "product-photo-studio",
-  "version": "1.0.0",
+  "name": "novaryns",
+  "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "prepare:runtime": "node prepare-runtime.mjs",
-    "models": "node download-models.mjs",
-    "build": "npm run prepare:runtime && vite build && node prepare-model-assets.mjs",
-    "preview": "vite preview --host 127.0.0.1",
-    "check": "node --check app.js && node --check ai.js && node --check ai-api.js && node --check imaging.js && node --check segment.worker.js && node --check model-loader.js && node --check storage.js",
-    "test": "node --test *.test.mjs"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "@phosphor-icons/core": "2.1.1",
-    "fflate": "0.8.3",
-    "onnxruntime-web": "1.30.0"
+    "@supabase/supabase-js": "^2.105.4",
+    "@types/nodemailer": "^8.0.1",
+    "@types/qrcode": "^1.5.6",
+    "@xyflow/react": "^12.11.0",
+    "aws4fetch": "^1.0.20",
+    "class-variance-authority": "0.7.0",
+    "clsx": "2.1.1",
+    "geist": "^1.7.2",
+    "jszip": "^3.10.1",
+    "lucide-react": "0.424.0",
+    "next": "15.5.24",
+    "nodemailer": "^10.0.13",
+    "onnxruntime-web": "^1.30.0",
+    "openai": "^6.38.0",
+    "pg": "^8.20.0",
+    "qrcode": "^1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "sharp": "^0.35.5",
+    "tailwind-merge": "2.4.0"
   },
   "devDependencies": {
-    "vite": "8.3.1"
+    "@types/node": "20.14.14",
+    "@types/pg": "^8.20.0",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "10.4.19",
+    "eslint": "8.57.0",
+    "eslint-config-next": "15.5.24",
+    "postcss": "8.5.28",
+    "tailwindcss": "3.4.7",
+    "typescript": "5.5.4"
+  },
+  "overrides": {
+    "nanoid": "3.3.19",
+    "postcss": "8.5.28"
   }
 }

@@ -1,50 +1,64 @@
-# 商品图工坊
+# Picset 商品图工作台
 
-浏览器里的商品图片工作台，可部署到 GitHub Pages。
+面向电商图片生产的全栈网页工具。页面结构、导航和主要工作流按 Picset 的公开产品界面复刻，并保留可自部署、可配置模型、可管理积分与作品的后端。
 
-## 功能
+## 已实现页面
 
-- 白底、透明底、自动居中、尺寸比例调整、最多 50 张素材、批量 ZIP 导出。
-- 可拖动商品构图、旋转、调整亮度与落地阴影；设置撤销、重置、放大预览、深浅外观与手机布局。
-- ISNet 精细抠图 / U²-Netp 快速抠图；擦除、恢复、圈选保留、撤销。
-- 四种不同版式的海报模板，可改标题、价格、卖点与商品位置，参考图提取配色。
-- 模板详情套图可逐页预览：封面、商品展示、真正的局部放大；可调整细节取景，填写卖点后增加信息页。
-- 全品类 AI 套图、风格复刻、服装套图、逐商品批量精修。
-- AI 创作按素材、分镜、结果组织；逐张编辑或取消分镜、最多 6 张多角度素材、平台与语言设置、停止生成、结果 ZIP 下载。
-- 生成结果自动存在本浏览器，可放大、继续修改、加入素材；API 配置使用独立面板。
+- 全品类商品图：产品分析、套图规划、主图 / 详情图 / 广告图生成
+- 风格复刻：单图、批量、包装风格复刻
+- SKU 替换：智能替换与多场景任务
+- 服装组图：模特试穿、基础套图与分镜规划
+- 买家秀、图片精修、图片翻译
+- 万能画布、电商视频工作台、批量抠图
+- 套餐价格、开发者 API、邀请有礼
 
-## 使用
+批量抠图自带浏览器本地 U²-Net 模型，未配置付费接口也能输出透明底或白底 PNG，并按 1:1、3:4、4:3、9:16、16:9 统一画布比例。处理在浏览器内完成，保留原商品 RGB 像素与原始分辨率，不用生成模型重绘商品。
 
-打开网页，拖入图片或粘贴截图。精细模型首次下载约 171 MB，快速模型约 5 MB，之后使用浏览器缓存。抠图与模板排版在浏览器内完成，不收取按张费用。
-
-AI 支持 OpenAI Images Edit 兼容接口及 Gemini generateContent，需要用户自己的模型、密钥、额度，服务商须允许浏览器跨域访问（CORS）。点击 AI 分析或生成才会发送素材。密钥只保存在当前标签页内存，刷新即清除；不会进入仓库或持久存储。接口地址与模型名称会保留。
-
-素材和已生成的 AI 结果存在当前浏览器 IndexedDB，刷新后可继续查看；清除网站数据、无痕模式或换设备后无法继续，请及时下载。浏览器存储写入失败会提醒下载。已导出文件也会显示直接下载链接。
-
-模型分成 4 MB 片段，逐块 SHA-256 校验和缓存。下载中断后重试复用有效片段；取消处理会终止当前抠图任务并保留原图及已有结果。
+其余图片功能通过服务端 OpenAI Images 或兼容接口运行。后台可配置 API Key、模型和中转地址；未配置 Key 时接口会明确返回“服务未配置”，不会扣积分或返回假结果。电商视频通过 Replicate 的 Seedance 1.5 Pro / Kling 2.1 Master 真实出片，在服务端设置 `REPLICATE_API_TOKEN` 后即可使用；未配置时返回 503，不创建任务。视频任务的轮询授权目前保存在单个 Node 进程内，单机 / 单容器可直接使用，多实例或 Serverless 部署应改用 Redis / 数据库共享任务状态。
 
 ## 本地运行
 
-需要 Node.js 22.12+。
-
-```sh
-npm ci
-npm run models
-npm run build
-npm run preview
+```bash
+npm install
+npm run dev
 ```
 
-## GitHub Pages
+打开 `http://localhost:3000/studio-genesis`。
 
-在 Settings → Pages → Source 选择 GitHub Actions。仓库工作流会下载模型、校验 MD5、测试、构建并发布。生产网站没有 Python 后端或服务器数据库。
+生产构建：
 
-## 验证与限制
+```bash
+npm run build
+npm start
+```
 
-- 已在 Chromium 用真实礼盒图验证精细抠图，保留包装文字、纹理和原始角度。
-- 已检查 1280×720 桌面、390×844 手机布局、深色外观、立即取消、拖动与撤销、实际 JPG 和四页 ZIP 导出。
-- 构建和 8 项行为测试通过，覆盖接口请求、密钥边界、错误处理、真实局部裁切、模型中断续用与损坏缓存恢复。API 测试使用模拟响应，不代表付费生图服务已连通。
-- AI 生图需实际密钥验证，效果取决于所接模型，不能承诺与 PicsetAI 的商业模型效果相同；输出需检查商品一致性。
-- 玻璃、毛发、相连物体等复杂边缘可能需修补。精细模型内存需求较高，可切换快速模式。
-- GitHub Pages 托管网页和模型文件，不提供生图 GPU 算力。不同网络下可达性及模型下载速度可能不同。
+## Docker 部署
 
-本项目独立实现界面与工作流，参考 PicsetAI 公开功能，与其无关联。第三方许可见 THIRD_PARTY.md 和 LICENSES.txt。
+```bash
+cp .env.example .env
+# 为 .env 中的 POSTGRES_PASSWORD 与 SETTINGS_SECRET 生成随机值
+docker compose up -d --build
+```
+
+完整部署、GHCR 镜像、更新与备份命令见 [DEPLOY.md](DEPLOY.md)。GitHub Pages 只能运行静态网页，不能运行本项目的 API、Postgres 与图片处理后端；GitHub 仓库用于保存源码并构建 Docker 镜像。
+
+## 模型配置
+
+首次打开网站会进入配置向导，也可以在 `/admin` 设置：
+
+- `OPENAI_API_KEY`
+- `OPENAI_IMAGE_MODEL`
+- `OPENAI_BASE_URL`（可选，供兼容网关或中转使用）
+- Replicate Token（可选，用于更精细的云端抠图）
+
+不能把 API Key 写进浏览器代码或提交到 GitHub。后台配置会使用 `SETTINGS_SECRET` 加密后保存。
+
+## 技术栈
+
+Next.js 15、React 18、TypeScript、PostgreSQL、OpenAI Images、Replicate、ONNX Runtime Web、Sharp、React Flow、Docker。
+
+## 许可与来源
+
+本项目基于 [Novaryns](https://github.com/usscottli-ctrl/novaryns) 修改，继续按 [AGPL-3.0](LICENSE) 发布。对外提供修改后的网络服务时，需要按 AGPL-3.0 公开对应源码。第三方运行时与模型来源见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+
+本项目与 Picset 官方没有隶属或授权关系。
