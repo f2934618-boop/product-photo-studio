@@ -22,6 +22,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { ToastProvider } from "@/components/ui/toast";
 import { RechargeModalProvider } from "@/lib/recharge-modal-context";
 import { RechargeModal } from "@/components/credits/recharge-modal";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 
 // 站点字体:Geist(拉丁/数字,Vercel)+ 系统中文栈(见 tailwind sans),数字 tabular-nums。
 // 中文不走网页字体(CJK 字体包数 MB,拖慢加载),用系统 PingFang/YaHei。
@@ -88,12 +89,12 @@ export default async function RootLayout({
             <AuthModalProvider>
               <RechargeModalProvider>
                 <ToastProvider>
-                  {authMode === "supabase" && <SessionBridge />}
+                  {!FRIENDS_MODE && authMode === "supabase" && <SessionBridge />}
                   <AppShell>{children}</AppShell>
                   <Suspense fallback={null}>
-                    <AuthModal />
+                    {!FRIENDS_MODE && <AuthModal />}
                   </Suspense>
-                  <RechargeModal />
+                  {!FRIENDS_MODE && <RechargeModal />}
                 </ToastProvider>
               </RechargeModalProvider>
             </AuthModalProvider>

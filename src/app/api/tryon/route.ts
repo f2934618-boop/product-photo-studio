@@ -16,7 +16,9 @@ import { clientIp } from "@/lib/ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveUserIdentity } from "@/lib/admin-auth";
 import { storageEnabled, uploadImage } from "@/lib/storage";
-import { getOpenAISettings } from "@/lib/settings";
+import { getOpenAISettings, getCloudflareAISettings } from "@/lib/settings";
+import { generateWithCloudflare } from "@/lib/cloudflare-ai";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 import { getOpenAIBaseUrl } from "@/lib/openai-base";
 import { TOOL_COST } from "@/lib/mock-data";
 import { getTryonLibrary } from "@/lib/tryon-store";
@@ -205,7 +207,7 @@ async function runTryonJob(
     let personBytes: Buffer | null = null; // 模特图字节(库图取回时填,作备用)
     try {
       const client = new OpenAI({
-        apiKey,
+        apiKey: apiKey || "unused",
         baseURL: (await getOpenAIBaseUrl()) || undefined,
         timeout: 230_000,
         maxRetries: 0,
@@ -300,6 +302,11 @@ async function runTryonJob(
         (input.expert ? ` Carefully reconcile all reference views before rendering; do not invent garment features that are not visible.` : "") +
         (input.prompt ? ` Extra requirements: ${input.prompt}` : "");
 
+      if (!apiKey && FRIENDS_MODE) {
+        const images = await Promise.all(files.map(async (file) => Buffer.from(await file.arrayBuffer())));
+        const url = await generateWithCloudflare({ images, prompt, ratio: input.ratio, settings: await getCloudflareAISettings() });
+        out = Buffer.from(url.split(",")[1], "base64");
+      } else {
       const r = await client.images.edit({
         model: genModel || "gpt-image-2",
         image: files,
@@ -311,6 +318,7 @@ async function runTryonJob(
       const b64 = r.data?.[0]?.b64_json;
       if (!b64) throw new Error("未返回试穿图");
       out = Buffer.from(b64, "base64");
+      }
     } catch (e) {
       throw e;
     }
@@ -424,7 +432,7 @@ export async function POST(request: Request) {
 
   try {
     const { apiKey, model: genModel } = await getOpenAISettings();
-    if (!apiKey.trim()) {
+    if (!apiKey.trim() && !(FRIENDS_MODE && (await getCloudflareAISettings()).ready)) {
       return NextResponse.json(
         { error: "服装生成服务未配置，请先在后台配置 OpenAI API Key" },
         { status: 503 }
@@ -436,17 +444,19 @@ export async function POST(request: Request) {
     }
 
     const identity = await resolveUserIdentity(request);
-    if (dbEnabled) {
+    if (dbEnabled && !FRIENDS_MODE) {
       if (!identity)
         return NextResponse.json({ error: "请先登录后再操作" }, { status: 401 });
       input.email = identity.email;
+    } else if (FRIENDS_MODE) {
+      input.email = identity?.email || "";
     } else if (identity) {
       input.email = identity.email;
     }
     const useDb = dbEnabled && input.email.length > 0;
-    const cost = TRYON_COST;
+    const cost = FRIENDS_MODE ? 0 : TRYON_COST;
 
-    if (dbEnabled && (await isBanned(input.email, ip)))
+    if (!FRIENDS_MODE && dbEnabled && (await isBanned(input.email, ip)))
       return NextResponse.json({ error: "账号或 IP 已被封禁" }, { status: 403 });
 
     if (useDb && cost > 0) {
@@ -465,7 +475,7 @@ export async function POST(request: Request) {
       identity?.kind !== "apiKey"
     );
     JOBS.set(jobId, { status: "pending", access, createdAt: Date.now() });
-    if (useDb) {
+    if (useDb && cost > 0) {
       try {
         await addReservation(jobId, input.email, cost);
       } catch (error) {

@@ -85,6 +85,11 @@ export function VideoStudio() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus>("idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/tool-status").then((response) => response.json()).then((status) => setVideoReady(!!status.video)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     try {
@@ -156,7 +161,7 @@ export function VideoStudio() {
       "【6-11秒｜卖点演示】用三个短镜头依次展示外观、使用方式和核心优势。",
       `【11-${duration}秒｜行动引导】回到商品全景，口播收束并引导了解详情。`,
     ].join("\n"));
-    setNotice("已生成可编辑的本地脚本草稿，未调用模型或扣除积分");
+    setNotice("已生成可编辑的分镜草稿，请核对商品信息后使用");
   }
   function persist(next: Draft[]) {
     setDrafts(next);
@@ -199,6 +204,10 @@ export function VideoStudio() {
     }
     if (model === "veo") {
       setError("Veo 3 尚未接入，请选择 Seedance 或 Kling");
+      return;
+    }
+    if (!videoReady) {
+      setError("视频生成服务暂未配置，当前可以编辑和保存脚本。");
       return;
     }
     if (mode === "remix" && counts.video === 0) {
@@ -433,7 +442,7 @@ export function VideoStudio() {
                   <Control label="口播语言"><Select value={language} onChange={setLanguage} disabled={!narration} options={["普通话", "英语", "粤语", "不指定"]} /></Control>
                   <Control label="口播音色"><Select value={voice} onChange={setVoice} disabled={!narration} options={["自然女声", "活力女声", "沉稳男声", "清朗男声"]} /></Control>
                   <Control label="视频模型">
-                    <div className="relative"><select value={model} onChange={(event) => { const next = event.target.value; setModel(next); if (next === "kling") { setDuration((current) => current === "5" || current === "10" ? current : "5"); setResolution("1080P"); } }} className="h-10 w-full appearance-none rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 pr-24 text-[12px] font-medium text-zinc-700 outline-none">{MODELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><span className={cn("pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded bg-white px-1.5 py-0.5 text-[9px] font-semibold", model === "veo" ? "text-amber-700" : "text-emerald-700")}>{model === "veo" ? "未支持" : "已接入"}</span></div>
+                    <div className="relative"><select value={model} onChange={(event) => { const next = event.target.value; setModel(next); if (next === "kling") { setDuration((current) => current === "5" || current === "10" ? current : "5"); setResolution("1080P"); } }} className="h-10 w-full appearance-none rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 pr-24 text-[12px] font-medium text-zinc-700 outline-none">{MODELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><span className={cn("pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded bg-white px-1.5 py-0.5 text-[9px] font-semibold", model === "veo" ? "text-amber-700" : "text-emerald-700")}>{model === "veo" ? "未支持" : videoReady ? "可使用" : "暂不可用"}</span></div>
                   </Control>
                 </div>
                 {model === "kling" && <p className="mt-3 text-[10.5px] leading-5 text-zinc-400">Kling 当前输出无声视频；需要声音时请选择 Seedance。</p>}
@@ -449,7 +458,7 @@ export function VideoStudio() {
             </div>
           </div>
 
-          <aside className="space-y-4 lg:sticky lg:top-6">
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-6">
             <div className="overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,.045)]">
               <div className={cn("relative mx-auto grid max-h-[270px] min-h-[188px] place-items-center overflow-hidden rounded-[16px] bg-zinc-950", ratio === "9:16" ? "aspect-[9/12] max-w-[220px]" : ratio === "1:1" ? "aspect-square" : "aspect-video")}>
                 {videoUrl ? (

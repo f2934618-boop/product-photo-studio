@@ -7,8 +7,10 @@
 // ---------------------------------------------------------------------------
 
 import { editionName } from "@/lib/edition";
+import { CloudflareAIRequestError } from "@/lib/cloudflare-ai";
 
 export function safeError(e: unknown, fallback = "服务繁忙,请稍后重试"): string {
+  if (e instanceof CloudflareAIRequestError) return e.message;
   const raw =
     e instanceof Error ? e.message : typeof e === "string" ? e : "";
   const low = (raw || "").toLowerCase();

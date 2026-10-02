@@ -19,7 +19,9 @@ import { clientIp } from "@/lib/ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveUserIdentity } from "@/lib/admin-auth";
 import { storageEnabled, uploadImage } from "@/lib/storage";
-import { getOpenAISettings } from "@/lib/settings";
+import { getOpenAISettings, getCloudflareAISettings } from "@/lib/settings";
+import { generateWithCloudflare } from "@/lib/cloudflare-ai";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 import { getOpenAIBaseUrl } from "@/lib/openai-base";
 import { getSuiteSystem, getSuitePlatformHint } from "@/lib/prompt-config";
 import {
@@ -289,6 +291,11 @@ async function genOneShot(
   productFiles: Awaited<ReturnType<typeof toFile>>[],
   expert: boolean
 ): Promise<Buffer> {
+  if (client.apiKey === "unused" && FRIENDS_MODE) {
+    const images = await Promise.all(productFiles.map(async (file) => Buffer.from(await file.arrayBuffer())));
+    const url = await generateWithCloudflare({ images, prompt: spec.prompt, ratio: spec.ratio, settings: await getCloudflareAISettings() });
+    return Buffer.from(url.split(",")[1], "base64");
+  }
   const r = await client.images.edit({
     model,
     image: productFiles,
@@ -380,7 +387,7 @@ async function runSuite(
   };
   try {
     const client = new OpenAI({
-      apiKey,
+      apiKey: apiKey || "unused",
       baseURL: (await getOpenAIBaseUrl()) || undefined,
       timeout: PER_SHOT_TIMEOUT,
       maxRetries: 0,
@@ -389,7 +396,9 @@ async function runSuite(
     // 第0层:工作台已真实分析时复用确认后的规划;旧版调用则在这里规划。
     const specs = plannedShots?.length
       ? plannedShots.map((shot, index) => normalizeSpec(shot, options, index))
-      : await planShots(client, productImages[0], extra, platform, options);
+      : !apiKey && FRIENDS_MODE
+        ? fallbackForOptions(extra, platform, options)
+        : await planShots(client, productImages[0], extra, platform, options);
     const shots: ShotResult[] = specs.map((s, i) => ({
       ...s,
       id: `suite-${Date.now()}-${i}`,
@@ -418,7 +427,12 @@ async function runSuite(
             const url = await persistOne(buf, shot.id);
             shots[idx] = { ...shot, status: "done", url };
             ok = true;
-          } catch {
+          } catch (error) {
+            if (!apiKey && FRIENDS_MODE) {
+              shots[idx] = { ...shot, status: "error" };
+              set({ shots: [...shots], done: doneCount });
+              throw error;
+            }
             // 频率限制/超时等:指数退避 + 抖动后重试,熬过限频窗口(2.5s→5s→10s,封顶18s)
             if (attempt < SHOT_RETRIES) {
               const wait =
@@ -434,7 +448,7 @@ async function runSuite(
       }
     };
     await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, shots.length) }, worker)
+      Array.from({ length: Math.min(apiKey ? CONCURRENCY : 1, shots.length) }, worker)
     );
 
     const okShots = shots.filter((s) => s.status === "done" && s.url);
@@ -580,7 +594,11 @@ export async function POST(request: Request) {
   }
 
   const { apiKey, model } = await getOpenAISettings();
-  if (!apiKey.trim()) {
+  if (!apiKey.trim() && FRIENDS_MODE && input.action === "plan") {
+    const shots = specsFromModules(input.options.modules, input.extra, input.platform, input.options);
+    return NextResponse.json({ status: "planned", planningMode: "template", total: shots.length, plan: shots.map((shot) => shot.label).join("\n"), shots });
+  }
+  if (!apiKey.trim() && !(FRIENDS_MODE && (await getCloudflareAISettings()).ready)) {
     return NextResponse.json(
       { error: "套图生成服务未配置，请先在后台配置 OpenAI API Key" },
       { status: 503 }
@@ -600,7 +618,7 @@ export async function POST(request: Request) {
 
   const identity = await resolveUserIdentity(request);
   // 生产环境必须凭有效登录态:用 token / API Key 绑定的 email 作准,不信任请求体 email。
-  if (dbEnabled) {
+  if (dbEnabled && !FRIENDS_MODE) {
     if (!identity) {
       return NextResponse.json(
         { error: "请先登录后再生成" },
@@ -608,13 +626,15 @@ export async function POST(request: Request) {
       );
     }
     input.email = identity.email;
+  } else if (FRIENDS_MODE) {
+    input.email = identity?.email || "";
   } else if (identity) {
     input.email = identity.email;
   }
   const useDb = dbEnabled && input.email.length > 0;
   if (input.images.length > 6) input.images = input.images.slice(0, 6);
 
-  if (dbEnabled && (await isBanned(input.email, ip))) {
+  if (!FRIENDS_MODE && dbEnabled && (await isBanned(input.email, ip))) {
     return NextResponse.json(
       { error: "账号或 IP 已被封禁，请联系管理员" },
       { status: 403 }
@@ -661,8 +681,8 @@ export async function POST(request: Request) {
   }
   const SHOT_COUNT = plannedShots?.length || input.options.count;
   const runOptions: SuiteOptions = { ...input.options, count: SHOT_COUNT };
-  const cost = SHOT_COUNT * POINTS_PER_IMAGE;
-  if (useDb) {
+  const cost = FRIENDS_MODE ? 0 : SHOT_COUNT * POINTS_PER_IMAGE;
+  if (useDb && cost > 0) {
     const ok = await reserveCredits(input.email, cost);
     if (!ok) {
       return NextResponse.json(
@@ -686,7 +706,7 @@ export async function POST(request: Request) {
     total: SHOT_COUNT,
     createdAt: Date.now(),
   });
-  if (useDb) await addReservation(jobId, input.email, cost);
+  if (useDb && cost > 0) await addReservation(jobId, input.email, cost);
   void sweepStaleReservations().catch(() => {});
   void runSuite(
     jobId,
@@ -702,7 +722,7 @@ export async function POST(request: Request) {
     plannedShots
   );
 
-  const response = jobResponse({ jobId, total: SHOT_COUNT, cost });
+  const response = jobResponse({ jobId, total: SHOT_COUNT, ...(FRIENDS_MODE ? {} : { cost }) });
   if (pollCookieSecret) {
     response.cookies.set(jobPollCookieName("suite", jobId), pollCookieSecret, {
       httpOnly: true,

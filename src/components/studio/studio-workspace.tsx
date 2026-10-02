@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { authHeader } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 import { downloadImage } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
@@ -50,14 +51,14 @@ const MODE: Record<StudioMode, ModeConfig> = {
   genesis: {
     kicker: "AI 全品类商品图",
     title: "一键生成主图 & 详情图组 & 广告图",
-    description: "上传产品图，AI 智能分析产品特征，自动生成电商主图、多角度多场景的详情图组及营销广告图",
+    description: "上传产品图，确认图片规划后生成电商主图、详情图组及营销广告图；请在要求中填写真实商品信息",
     uploadTitle: "产品图",
     uploadDescription: "上传清晰的产品图片",
     max: 6,
     promptLabel: "详情图要求",
     promptPlaceholder: "建议输入：产品名称、卖点、目标人群、目标电商平台、图片风格等",
-    action: "分析产品",
-    empty: "上传产品图并填写要求后\n点击“分析产品”开始",
+    action: "规划商品图",
+    empty: "上传产品图并填写要求后\n点击“规划商品图”开始",
     showSteps: true,
     batch: true,
   },
@@ -648,7 +649,7 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
         const file = files[index];
         try {
           // 白底抠图对访客开放，直接在浏览器执行，原图无需上传。
-          if (refinementOperation === "white-background" && !user?.email) {
+          if (refinementOperation === "white-background" && (FRIENDS_MODE || !user?.email)) {
             completed.push(await runLocalWhiteBackground(file, index));
             setResults([...completed]);
             setProgress(Math.round(((index + 1) / files.length) * 100));
@@ -924,7 +925,7 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
               ) : mode !== "matting" && mode !== "refinement" && (
                 <div className="studio-two-fields">
                   <SelectField label="目标语言" value={language} onChange={setLanguage} options={["无文字（纯视觉）", "简体中文", "English", "日本語", "Español"]} />
-                  <SelectField label="模型" value="Nova 2.0" onChange={() => {}} options={["Nova 2.0"]} />
+                  <SelectField label="模型" value="商品图模型" onChange={() => {}} options={["商品图模型"]} />
                 </div>
               )}
 

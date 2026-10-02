@@ -33,7 +33,9 @@ import {
   uploadImage,
   dataUrlToBytes,
 } from "@/lib/storage";
-import { getOpenAISettings } from "@/lib/settings";
+import { getOpenAISettings, getCloudflareAISettings } from "@/lib/settings";
+import { generateWithCloudflare } from "@/lib/cloudflare-ai";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 import { getOpenAIBaseUrl } from "@/lib/openai-base";
 import { getStyleGuide } from "@/lib/prompt-config";
 
@@ -193,6 +195,17 @@ async function openaiImages(
   modelIn: string,
   cutoutModel: string
 ): Promise<GeneratedImage[]> {
+  if (!apiKey && FRIENDS_MODE) {
+    if (p.transparent) throw new Error("透明底请使用快速抠图");
+    const settings = await getCloudflareAISettings();
+    const prompt = p.ratiogen ? ratioPrompt(p) : buildPrompt(p, await getStyleGuide());
+    const images: GeneratedImage[] = [];
+    for (let index = 0; index < p.count; index++) {
+      const url = await generateWithCloudflare({ images: p.images.map((image) => image.buf), prompt, ratio: p.ratio, settings, variant: index });
+      images.push({ id: createJobId("image"), url, gradient: GRADIENTS[index % GRADIENTS.length], prompt: p.userPrompt || p.prompt, ratio: p.ratio, createdAt: new Date().toISOString() });
+    }
+    return images;
+  }
   // 透明底只 gpt-image-1 支持(gpt-image-2 实测不支持 background:transparent),走抠图模型;
   // 其余生图走默认模型(gpt-image-2)。普通生图的兜底已统一 v2,不再落 v1。
   const model = p.transparent ? cutoutModel || "gpt-image-1" : modelIn;
@@ -685,7 +698,7 @@ export async function POST(request: Request) {
   const { apiKey: configuredApiKey, model, cutoutModel } =
     await getOpenAISettings();
   const apiKey = configuredApiKey.trim();
-  if (!apiKey) {
+  if (!apiKey && !(FRIENDS_MODE && (await getCloudflareAISettings()).ready)) {
     return NextResponse.json(
       { error: "图片生成服务未配置，请先在后台配置 OpenAI API Key" },
       { status: 503 }
@@ -704,7 +717,7 @@ export async function POST(request: Request) {
   const identity = await resolveUserIdentity(request);
   // 生产环境(接了库)必须凭有效登录态:用 token / API Key 绑定的 email 作准,不信任请求体
   // 传来的 email——既堵住「空 email 免费烧 key」,也防「冒用他人邮箱花其积分」。
-  if (dbEnabled) {
+  if (dbEnabled && !FRIENDS_MODE) {
     if (!identity) {
       return NextResponse.json(
         { error: "请先登录后再生成" },
@@ -712,6 +725,8 @@ export async function POST(request: Request) {
       );
     }
     p.email = identity.email;
+  } else if (FRIENDS_MODE) {
+    p.email = identity?.email || "";
   } else if (identity) {
     p.email = identity.email;
   }
@@ -719,16 +734,16 @@ export async function POST(request: Request) {
   // 改比例只出 1 张,固定按 1 张计费(防止 count 被改大而超扣)。
   if (p.ratiogen) p.count = 1;
   // 全站固定标准档 medium(前端已无质量选择器),计费纯按分辨率(1K/2K=9、4K=18)。
-  const cost = p.count * resolutionCost(p.resolution);
+  const cost = FRIENDS_MODE ? 0 : p.count * resolutionCost(p.resolution);
 
-  if (dbEnabled && (await isBanned(p.email, ip))) {
+  if (!FRIENDS_MODE && dbEnabled && (await isBanned(p.email, ip))) {
     return NextResponse.json(
       { error: "账号或 IP 已被封禁，请联系管理员" },
       { status: 403 }
     );
   }
 
-  if (useDb) {
+  if (useDb && cost > 0) {
     const ok = await reserveCredits(p.email, cost);
     if (!ok) {
       return NextResponse.json(
@@ -747,7 +762,7 @@ export async function POST(request: Request) {
   JOBS.set(jobId, { status: "pending", access, createdAt: Date.now() });
   // Record the credit reservation so it can be auto-refunded if the process
   // dies mid-job; opportunistically sweep older orphans on each new request.
-  if (useDb) await addReservation(jobId, p.email, cost);
+  if (useDb && cost > 0) await addReservation(jobId, p.email, cost);
   void sweepStaleReservations().catch(() => {});
   // Fire-and-forget: continues in the persistent Node server after we respond.
   void runJob(jobId, access, p, apiKey, model, cutoutModel, useDb, cost);

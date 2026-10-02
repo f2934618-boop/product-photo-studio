@@ -4,10 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  CodeXml,
-  CreditCard,
-  Diamond,
-  Gift,
   Headset,
   Image as ImageIcon,
   Images,
@@ -20,13 +16,11 @@ import {
   Scissors,
   Shirt,
   Sparkles,
-  UserRound,
   Wand2,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth-context";
 import { useBrand } from "@/lib/brand-context";
 
 type NavItem = {
@@ -39,6 +33,7 @@ type NavItem = {
 
 const ITEMS: NavItem[] = [
   { href: "/batch-matting", label: "商品白底图", icon: Scissors, aliases: ["/cutout", "/batch-cutout"] },
+  { href: "/studio-genesis", label: "全品类商品图", icon: Sparkles, aliases: ["/suite"] },
   { href: "/aesthetic-mirror", label: "风格复刻", icon: ImageIcon, aliases: ["/style", "/style-copy"] },
   { href: "/sku-replace", label: "SKU 替换", icon: Replace, badge: "NEW", aliases: ["/fuse"] },
   { href: "/clothing-studio", label: "服装组图", icon: Shirt, aliases: ["/tryon", "/garment", "/garment3d", "/clothing-group"] },
@@ -47,9 +42,6 @@ const ITEMS: NavItem[] = [
   { href: "/batch-translation", label: "图片翻译", icon: Languages, aliases: ["/image-translate"] },
   { href: "/canvas-studio", label: "万能画布", icon: PenTool, badge: "Beta", aliases: ["/canvas"] },
   { href: "/video-studio", label: "电商视频", icon: Play, badge: "Beta", aliases: ["/generate", "/ecommerce-video"] },
-  { href: "/pricing", label: "套餐价格", icon: CreditCard, aliases: ["/plans"] },
-  { href: "/developer-api", label: "API接入", icon: CodeXml, aliases: ["/api-access"] },
-  { href: "/invite", label: "邀请有礼", icon: Gift },
 ];
 
 function activeFor(path: string, item: NavItem) {
@@ -94,7 +86,6 @@ function Brand({ mobile = false, collapsed = false }: { mobile?: boolean; collap
 
 export function AppRail() {
   const path = usePathname() || "/studio-genesis";
-  const { user, remaining } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -227,23 +218,6 @@ export function AppRail() {
               })}
             </nav>
 
-            <div className="mt-3 flex items-center gap-2 border-t border-zinc-200 pt-3">
-              {user ? (
-                <>
-                  <Link href={`/pricing?return_to=${encodeURIComponent(path)}`} className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 no-underline">
-                    <Diamond aria-hidden="true" className="h-4 w-4 fill-amber-100 text-amber-500" />
-                    <span>{remaining}</span>
-                  </Link>
-                  <Link href="/account" className="grid h-10 w-10 place-items-center rounded-xl border border-zinc-200 bg-white text-zinc-800" aria-label="个人中心">
-                    <UserRound aria-hidden="true" className="h-4 w-4" />
-                  </Link>
-                </>
-              ) : (
-                <Link href="/sign-in" className="flex h-10 flex-1 items-center justify-center rounded-xl border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 no-underline">
-                  登录
-                </Link>
-              )}
-            </div>
           </div>
         </>
       )}

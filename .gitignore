@@ -13,4 +13,5 @@ next-env.d.ts
 npm-debug.log*
 .vercel
 /data
+/qa/
 .neon

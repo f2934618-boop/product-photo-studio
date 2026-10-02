@@ -1,3 +1,4 @@
+import { artworkOwner } from "@/lib/artwork-owner";
 import { NextResponse } from "next/server";
 import { dbEnabled, listArtworksByIds } from "@/lib/db";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   if (!dbEnabled) return NextResponse.json({ persisted: false, artworks: [] });
   const url = new URL(request.url);
-  const email = url.searchParams.get("email");
+  const email = await artworkOwner(request, url.searchParams.get("email"));
   const ids = (url.searchParams.get("ids") || "")
     .split(",")
     .map((s) => s.trim())

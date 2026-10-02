@@ -1,3 +1,4 @@
+import { artworkOwner } from "@/lib/artwork-owner";
 import { NextResponse } from "next/server";
 import { dbEnabled, renameArtwork } from "@/lib/db";
 
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "请求格式不正确" }, { status: 400 });
   }
-  const email = (body.email ?? "").trim();
+  const email = await artworkOwner(request, (body.email ?? "").trim());
   const id = (body.id ?? "").trim();
   const title = (body.title ?? "").trim();
   if (!email || !id || !title) {

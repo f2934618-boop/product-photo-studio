@@ -82,6 +82,7 @@ async function run(request: CutoutRequest) {
 
   progress(id, 78, "正在整理商品边缘…");
   const mask = inputContext.createImageData(side, side);
+  let left = side, top = side, right = -1, bottom = -1;
   for (let index = 0; index < pixelCount; index++) {
     const normalized = (prediction[index] - low) / (high - low);
     const adjusted = Math.max(0, Math.min(1, (normalized - 0.035) / 0.93));
@@ -90,6 +91,12 @@ async function run(request: CutoutRequest) {
     mask.data[index * 4 + 1] = 255;
     mask.data[index * 4 + 2] = 255;
     mask.data[index * 4 + 3] = alpha;
+    if (alpha >= 32) {
+      const x = index % side;
+      const y = Math.floor(index / side);
+      left = Math.min(left, x); right = Math.max(right, x);
+      top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
   }
   inputContext.clearRect(0, 0, side, side);
   inputContext.putImageData(mask, 0, 0);
@@ -106,9 +113,15 @@ async function run(request: CutoutRequest) {
 
   const [ratioWidth, ratioHeight] = ratio.split(":").map(Number);
   const targetRatio = ratioWidth > 0 && ratioHeight > 0 ? ratioWidth / ratioHeight : sourceWidth / sourceHeight;
-  const sourceRatio = sourceWidth / sourceHeight;
-  const targetWidth = sourceRatio > targetRatio ? sourceWidth : Math.round(sourceHeight * targetRatio);
-  const targetHeight = sourceRatio > targetRatio ? Math.round(sourceWidth / targetRatio) : sourceHeight;
+  if (right <= left || bottom <= top) throw new Error("未识别到完整商品，请换一张主体清晰的照片");
+  // Center the detected subject, not the original street photograph. Keep its
+  // native pixels and add margin; changing ratio must never crop the product.
+  const subjectWidth = (right - left + 1) * sourceWidth / side;
+  const subjectHeight = (bottom - top + 1) * sourceHeight / side;
+  const centerX = (left + right + 1) * sourceWidth / (2 * side);
+  const centerY = (top + bottom + 1) * sourceHeight / (2 * side);
+  const targetWidth = Math.ceil(Math.max(subjectWidth / .84, subjectHeight * targetRatio / .84));
+  const targetHeight = Math.ceil(targetWidth / targetRatio);
   const outputCanvas = new OffscreenCanvas(targetWidth, targetHeight);
   const context = outputCanvas.getContext("2d");
   if (!context) throw new Error("浏览器无法生成抠图结果");
@@ -118,8 +131,8 @@ async function run(request: CutoutRequest) {
   }
   context.drawImage(
     cutoutCanvas,
-    Math.round((targetWidth - sourceWidth) / 2),
-    Math.round((targetHeight - sourceHeight) / 2)
+    Math.round(targetWidth / 2 - centerX),
+    Math.round(targetHeight / 2 - centerY)
   );
 
   const blob = await outputCanvas.convertToBlob({ type: "image/png" });

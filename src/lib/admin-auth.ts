@@ -9,6 +9,8 @@ import { isAdminToken, emailFromToken, bearer } from "@/lib/supabase-admin";
 import { supabaseEnabled } from "@/lib/auth-mode";
 import { OPERATOR_EMAIL } from "@/lib/operator";
 import { hashPassword, verifyPassword } from "@/lib/pw";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
+import { workspaceEmail } from "@/lib/workspace-session";
 
 // 兼容旧引用:密码哈希/校验已抽到 @/lib/pw,这里再导出一份。
 export { hashPassword, verifyPassword };
@@ -135,6 +137,10 @@ export async function requireAdmin(request: Request): Promise<boolean> {
 export async function resolveSessionUserEmail(
   request: Request
 ): Promise<string | null> {
+  if (FRIENDS_MODE) {
+    const email = workspaceEmail(request);
+    if (email) return email;
+  }
   const bearerToken = bearer(request);
   const tokenEmail = bearerToken?.startsWith("nv_live_")
     ? null

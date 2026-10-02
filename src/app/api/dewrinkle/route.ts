@@ -17,6 +17,9 @@ import { getOpenAISettings } from "@/lib/settings";
 import { getOpenAIBaseUrl } from "@/lib/openai-base";
 import { TOOL_COST } from "@/lib/mock-data";
 import { safeError } from "@/lib/api-error";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
+import { generateWithCloudflare } from "@/lib/cloudflare-ai";
+import { getCloudflareAISettings } from "@/lib/settings";
 
 // 服装去皱:gpt-image-2 把衣服上的褶皱/折痕抚平、面料平整如新,其余(版型/颜色/模特/背景)全保留。
 export const runtime = "nodejs";
@@ -76,6 +79,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "图片过大(请 < 12MB)" }, { status: 400 });
 
   try {
+    if (FRIENDS_MODE) {
+      const url = await generateWithCloudflare({ images: [input.bytes], prompt: BASE_PROMPT + (input.prompt ? ` Additional requirements: ${input.prompt}` : ""), ratio: input.ratio || "1:1", settings: await getCloudflareAISettings() });
+      return NextResponse.json({ ok: true, id: `dewrinkle-${crypto.randomUUID()}`, url });
+    }
     const ip = clientIp(request);
     if (!rateLimit(`dewrinkle:${ip}`, 40, 600_000))
       return NextResponse.json({ error: "请求过于频繁,请稍后再试" }, { status: 429 });

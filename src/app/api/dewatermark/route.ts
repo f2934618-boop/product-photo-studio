@@ -17,6 +17,9 @@ import { getOpenAISettings } from "@/lib/settings";
 import { getOpenAIBaseUrl } from "@/lib/openai-base";
 import { TOOL_COST } from "@/lib/mock-data";
 import { safeError } from "@/lib/api-error";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
+import { generateWithCloudflare } from "@/lib/cloudflare-ai";
+import { getCloudflareAISettings } from "@/lib/settings";
 
 // 去水印:gpt-image-2 擦除图中的水印/logo/文字叠层/时间戳/站标等标记,并自然补全被遮挡的底图,
 // 其余(主体/颜色/构图/背景/光照)全保留。
@@ -77,6 +80,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "图片过大(请 < 12MB)" }, { status: 400 });
 
   try {
+    if (FRIENDS_MODE) {
+      const prompt = "Remove only overlay watermarks and naturally restore the covered content. Preserve the original product, printed packaging text, brand logos, illustrations, colours, lighting and composition. Printed product branding is NOT a watermark. " + input.prompt;
+      const url = await generateWithCloudflare({ images: [input.bytes], prompt, ratio: input.ratio || "1:1", settings: await getCloudflareAISettings() });
+      return NextResponse.json({ ok: true, id: `dewatermark-${crypto.randomUUID()}`, url });
+    }
     const ip = clientIp(request);
     if (!rateLimit(`dewatermark:${ip}`, 40, 600_000))
       return NextResponse.json({ error: "请求过于频繁,请稍后再试" }, { status: 429 });

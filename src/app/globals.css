@@ -311,7 +311,7 @@ html.picset-sidebar-collapsed { --picset-sidebar: 64px; }
 .studio-result { position: relative; aspect-ratio: 1; overflow: hidden; border: 2px solid transparent; border-radius: 14px; background: #fafafa; }
 .studio-result.is-selected { border-color: #18181b; }
 .studio-result.is-error { border-color: #fca5a5; }
-.studio-result > img { width: 100%; height: 100%; object-fit: cover; }
+.studio-result > img { width: 100%; height: 100%; object-fit: contain; }
 .studio-result-check { position: absolute; top: 8px; left: 8px; display: grid; width: 22px; height: 22px; place-items: center; border: 2px solid #fff; border-radius: 6px; background: rgba(0,0,0,.22); color: #fff; cursor: pointer; }
 .studio-result.is-selected .studio-result-check { background: #18181b; }
 .studio-result-check svg { width: 13px; height: 13px; stroke-width: 3; }

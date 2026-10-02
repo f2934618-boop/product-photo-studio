@@ -35,6 +35,7 @@ export async function GET(request: Request) {
   try {
     // 是否有权看该 email 的私有数据(本人 或 管理员)——独立判断,不依赖用户行是否存在。
     const allowed = await canSeePrivate(request, email);
+    if (!allowed) return NextResponse.json({ error: "无权访问这个工作台" }, { status: 403 });
     let user = await getUser(email);
     // 开源版单用户常见:操作员有有效登录态(nv_admin cookie)但用户行还没建起来。
     // 授权本人/管理员首次访问时把行补上,否则下面按「user 为空」把作品全挡掉 → 展示为空。

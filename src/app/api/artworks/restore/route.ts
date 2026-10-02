@@ -1,3 +1,4 @@
+import { artworkOwner } from "@/lib/artwork-owner";
 import { NextResponse } from "next/server";
 import { dbEnabled, addArtworks, setArtworkPosition } from "@/lib/db";
 import type { ArtworkRecord } from "@/lib/db";
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "请求格式不正确" }, { status: 400 });
   }
-  const email = (body.email ?? "").trim();
+  const email = await artworkOwner(request, (body.email ?? "").trim());
   const records = Array.isArray(body.records) ? body.records.slice(0, 200) : [];
   if (!email || records.length === 0) {
     return NextResponse.json({ error: "缺少参数" }, { status: 400 });

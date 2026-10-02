@@ -15,6 +15,7 @@ import { resolveUserEmail } from "@/lib/admin-auth";
 import { storageEnabled, uploadImage } from "@/lib/storage";
 import { safeError } from "@/lib/api-error";
 import { getCutoutSettings } from "@/lib/settings";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 
 // ---------------------------------------------------------------------------
 // AI 变清晰(超分放大)专用端点。
@@ -202,17 +203,17 @@ export async function POST(request: Request) {
       );
     }
 
-    if (dbEnabled) {
+    if (dbEnabled && !FRIENDS_MODE) {
       const tokenEmail = await resolveUserEmail(request);
       if (!tokenEmail) {
         return NextResponse.json({ error: "请先登录后再操作" }, { status: 401 });
       }
       input.email = tokenEmail;
     }
-    const useDb = dbEnabled && input.email.length > 0;
-    const cost = UPSCALE_COST;
+    const useDb = !FRIENDS_MODE && dbEnabled && input.email.length > 0;
+    const cost = FRIENDS_MODE ? 0 : UPSCALE_COST;
 
-    if (dbEnabled && (await isBanned(input.email, ip))) {
+    if (!FRIENDS_MODE && dbEnabled && (await isBanned(input.email, ip))) {
       return NextResponse.json({ error: "账号或 IP 已被封禁" }, { status: 403 });
     }
 

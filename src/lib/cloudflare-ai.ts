@@ -1,5 +1,8 @@
 import "server-only";
 import { createHash } from "crypto";
+import { mkdir, readFile, rename, writeFile } from "fs/promises";
+import path from "path";
+import { MEDIA_DIR } from "@/lib/storage";
 import sharp from "sharp";
 import {
   CLOUDFLARE_AI_MODELS,
@@ -96,7 +99,7 @@ function base64FromEnvelope(payload: unknown): string | null {
   return null;
 }
 
-async function asDataUrl(response: Response): Promise<string> {
+async function asDataUrl(response: Response, whiteBackground: boolean): Promise<string> {
   const contentType = response.headers.get("content-type") || "";
   let output: Buffer;
   let declaredMime = "";
@@ -142,7 +145,7 @@ async function asDataUrl(response: Response): Promise<string> {
     const alpha = data[index + 3];
     const highest = Math.max(red, green, blue);
     const lowest = Math.min(red, green, blue);
-    if (alpha >= 250 && lowest >= 245 && highest - lowest <= 12) {
+    if (whiteBackground && alpha >= 250 && lowest >= 245 && highest - lowest <= 12) {
       data[index] = 255;
       data[index + 1] = 255;
       data[index + 2] = 255;
@@ -166,10 +169,52 @@ export async function reshootProductWithCloudflare(opts: {
   quality?: "standard" | "quality";
   settings: CloudflareAISettings;
 }): Promise<string> {
+  return generateWithCloudflare({
+    images: [opts.bytes],
+    ratio: opts.ratio,
+    prompt: buildPrompt(opts.prompt || ""),
+    quality: opts.quality,
+    settings: opts.settings,
+    whiteBackground: true,
+  });
+}
+
+const CACHE_DIR = path.join(MEDIA_DIR, ".ai-cache");
+const inflight = new Map<string, Promise<string>>();
+let active = false;
+const waiting: Array<() => void> = [];
+
+async function acquire() {
+  if (!active) { active = true; return; }
+  await new Promise<void>((resolve) => waiting.push(resolve));
+}
+function release() {
+  const next = waiting.shift();
+  if (next) next(); else active = false;
+}
+
+const UNAVAILABLE = "AI 服务暂时不可用，请稍后重试；快速抠图仍可使用。";
+
+export async function cloudflareAvailable() {
+  const blocked = Number(await readFile(path.join(CACHE_DIR, "unavailable-until"), "utf8").catch(() => "0"));
+  return blocked <= Date.now();
+}
+
+// Saved under the mounted volume, so deploys and duplicate requests do not
+// discard successful results or spend another model call for the same inputs.
+export async function generateWithCloudflare(opts: {
+  images: Buffer[];
+  ratio: string;
+  prompt: string;
+  quality?: "standard" | "quality";
+  settings: CloudflareAISettings;
+  whiteBackground?: boolean;
+  variant?: number;
+}): Promise<string> {
   const { settings } = opts;
   if (!settings.ready) {
     throw new CloudflareAIRequestError(
-      "高质量商品重拍服务尚未配置，请联系管理员",
+      "AI 服务暂时不可用，请联系网站维护者",
       503
     );
   }
@@ -190,29 +235,55 @@ export async function reshootProductWithCloudflare(opts: {
     );
   }
 
-  const reference = await prepareReference(opts.bytes);
-  const referenceBytes = Uint8Array.from(reference).buffer;
+  if (opts.images.length > 4) {
+    throw new CloudflareAIRequestError("一次最多使用 4 张产品与参考图片", 400);
+  }
+  const hash = createHash("sha256")
+    .update("image-v2\0" + settings.accountId + "\0" + model + "\0" + opts.ratio)
+    .update("\0" + opts.prompt + "\0" + String(opts.variant || 0) + "\0" + String(!!opts.whiteBackground));
+  for (const bytes of opts.images) hash.update("\0" + bytes.length + "\0").update(bytes);
+  const key = hash.digest("hex");
+  const filename = path.join(CACHE_DIR, `${key}.png`);
+  try {
+    const saved = await readFile(filename);
+    return `data:image/png;base64,${saved.toString("base64")}`;
+  } catch { /* cache miss */ }
+  const existing = inflight.get(key);
+  if (existing) return existing;
+  const task = (async () => {
+    await acquire();
+    try {
+      const blocked = Number(await readFile(path.join(CACHE_DIR, "unavailable-until"), "utf8").catch(() => "0"));
+      if (blocked > Date.now()) throw new CloudflareAIRequestError(UNAVAILABLE, 503);
+      const image = await requestCloudflareImage(opts, model, key);
+      const png = Buffer.from(image.split(",")[1], "base64");
+      await mkdir(CACHE_DIR, { recursive: true });
+      const temporary = `${filename}.tmp`;
+      await writeFile(temporary, png);
+      await rename(temporary, filename);
+      return image;
+    } finally { release(); }
+  })();
+  inflight.set(key, task);
+  try { return await task; } finally { inflight.delete(key); }
+}
+
+async function requestCloudflareImage(
+  opts: Parameters<typeof generateWithCloudflare>[0],
+  model: string,
+  key: string
+) {
+  const { settings } = opts;
   const size = outputSize(opts.ratio);
   const form = new FormData();
-  form.append("prompt", buildPrompt(opts.prompt || ""));
-  form.append(
-    "input_image_0",
-    new Blob([referenceBytes], { type: "image/png" }),
-    "product-reference.png"
-  );
+  form.append("prompt", opts.prompt);
+  for (let index = 0; index < opts.images.length; index++) {
+    const reference = await prepareReference(opts.images[index]);
+    form.append(`input_image_${index}`, new Blob([Uint8Array.from(reference).buffer], { type: "image/png" }), `reference-${index}.png`);
+  }
   form.append("width", String(size.width));
   form.append("height", String(size.height));
-  form.append(
-    "seed",
-    String(
-      reproducibleSeed({
-        bytes: opts.bytes,
-        ratio: opts.ratio,
-        prompt: buildPrompt(opts.prompt || ""),
-        model,
-      })
-    )
-  );
+  form.append("seed", String(parseInt(key.slice(0, 8), 16) % 2_000_000_000));
 
   const endpoint = `${CLOUDFLARE_API_ROOT}/${encodeURIComponent(
     settings.accountId
@@ -245,16 +316,22 @@ export async function reshootProductWithCloudflare(opts: {
       );
     }
     if (response.status === 429) {
-      throw new CloudflareAIRequestError(
-        "高质量生成额度暂时已用完，请稍后再试",
-        429
-      );
+      // Daily allocation exhaustion is different from a transient rate limit.
+      // Stop queued calls until the provider's next UTC reset, without retrying
+      // every image in a batch. Transient throttling has only a short cooldown.
+      const dailyLimit = /4006|daily free allocation|10,000 neurons/i.test(detail);
+      const until = dailyLimit
+        ? Math.floor(Date.now() / 86_400_000) * 86_400_000 + 86_400_000
+        : Date.now() + 60_000;
+      await mkdir(CACHE_DIR, { recursive: true });
+      await writeFile(path.join(CACHE_DIR, "unavailable-until"), String(until));
+      throw new CloudflareAIRequestError(UNAVAILABLE, 503);
     }
     throw new CloudflareAIRequestError("高质量生成失败，请稍后重试", 502);
   }
 
   try {
-    return await asDataUrl(response);
+    return await asDataUrl(response, !!opts.whiteBackground);
   } catch (error) {
     console.error(
       "[cloudflare-ai] invalid output:",

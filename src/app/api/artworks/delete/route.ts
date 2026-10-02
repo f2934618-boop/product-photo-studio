@@ -1,3 +1,4 @@
+import { artworkOwner } from "@/lib/artwork-owner";
 import { NextResponse } from "next/server";
 import { dbEnabled, deleteArtworksByIds } from "@/lib/db";
 
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "请求格式不正确" }, { status: 400 });
   }
-  const email = (body.email ?? "").trim();
+  const email = await artworkOwner(request, (body.email ?? "").trim());
   const ids = Array.isArray(body.ids)
     ? body.ids.filter((x) => typeof x === "string").slice(0, 200)
     : [];

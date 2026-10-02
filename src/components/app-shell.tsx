@@ -2,17 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Diamond, Headset, UserRound } from "lucide-react";
+import { Headset } from "lucide-react";
 import { AppRail } from "@/components/app-rail";
-import { useAuth } from "@/lib/auth-context";
 
 const BARE_ROUTES = ["/sign-in", "/sign-up", "/setup", "/admin", "/deploy", "/licenses", "/cardkeys"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "/";
-  const { user, remaining } = useAuth();
   const bare = BARE_ROUTES.some((route) => path === route || path.startsWith(`${route}/`));
-  const pricingHref = `/pricing?return_to=${encodeURIComponent(path)}`;
 
   if (bare) return <main className="min-h-screen">{children}</main>;
 
@@ -20,25 +17,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="picset-app-shell">
       <AppRail />
       <div className="picset-main-shell">
-        <header className="picset-topbar max-[760px]:!hidden">
-          <div className="picset-topbar-actions">
-            {user ? (
-              <>
-                <Link href={pricingHref} className="picset-credit-button" aria-label="剩余积分">
-                  <Diamond aria-hidden="true" />
-                  <span>{remaining}</span>
-                </Link>
-                <Link href="/account" className="picset-user-button" aria-label="个人中心">
-                  <UserRound aria-hidden="true" />
-                </Link>
-              </>
-            ) : (
-              <Link href="/sign-in" className="picset-topbar-button !h-9 !px-4 !text-xs">
-                登录
-              </Link>
-            )}
-          </div>
-        </header>
         <main className="picset-page">{children}</main>
       </div>
 

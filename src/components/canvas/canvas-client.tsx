@@ -73,6 +73,7 @@ import { ImageLightbox } from "@/components/image-lightbox";
 import { BRAND, BRAND_CANVAS_LOGO } from "@/lib/brand";
 import { TemplatesClient } from "@/components/templates/templates-client";
 import { CreditPacks } from "@/components/credits/credit-packs";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 import { PayQrModal } from "@/components/credits/pay-qr-modal";
 import { AccountClient } from "@/components/account/account-client";
 import { SecurityClient } from "@/components/account/security-client";
@@ -839,6 +840,7 @@ export function CanvasClient() {
   } | null>(null);
   // 打开一级弹窗(右上角按钮)
   function openModal(page: ModalRoute["page"]) {
+    if (FRIENDS_MODE && ["plans", "account", "checkout", "security"].includes(page)) return;
     setModalStack([{ page }]);
   }
   // 弹窗内点链接 → 进下一级(画布内层叠);返回 = 出栈
@@ -986,7 +988,7 @@ export function CanvasClient() {
   }
 
   useEffect(() => {
-    if (ready && !user) openAuth("sign-in");
+    if (ready && !user && !FRIENDS_MODE) openAuth("sign-in");
   }, [ready, user, openAuth]);
 
   useEffect(() => {
@@ -1070,7 +1072,7 @@ export function CanvasClient() {
 
   const { projects } = useMemo(() => {
     const arts = (works ?? []).filter(
-      (a) => a.status === "completed" && /^https?:\/\//.test(a.image)
+      (a) => a.status === "completed" && (/^https?:\/\//.test(a.image) || a.image.startsWith("/media/"))
     );
     const byId = new Map(arts.map((a) => [a.id, a]));
     const groups = new Map<string, Artwork[]>();
@@ -1841,7 +1843,18 @@ export function CanvasClient() {
       fd.append("resolution", source.resolution || "1K");
       // 抠图统一发丝级(Replicate),扣 1 积分/张,与抠图页一致
       fd.append("quality", quality);
-      const res = await fetch("/api/cutout", {
+      if (FRIENDS_MODE) {
+        const { cutoutLocally } = await import("@/components/cutout/batch-matting-client");
+        const original = await fetch(source.image);
+        if (!original.ok) throw new Error("读取原图失败");
+        const file = new File([await original.blob()], "source.png", { type: "image/png" });
+        const local = await cutoutLocally(file, false, source.ratio || "1:1", () => {});
+        try {
+          const png = await fetch(local).then((response) => response.blob());
+          fd.append("image", new File([png], "cutout.png", { type: "image/png" }));
+        } finally { URL.revokeObjectURL(local); }
+      }
+      const res = await fetch(FRIENDS_MODE ? "/api/artworks/add" : "/api/cutout", {
         method: "POST",
         headers: await authHeader(),
         body: fd,
@@ -2225,7 +2238,7 @@ export function CanvasClient() {
     setZipping(true);
     try {
       const items = active.members
-        .filter((m) => /^https?:\/\//.test(m.image))
+        .filter((m) => /^https?:\/\//.test(m.image) || m.image.startsWith("/media/"))
         .slice(0, 30)
         .map((m, i) => ({ url: m.image, name: m.title || `img-${i + 1}` }));
       const res = await fetch("/api/suite/download", {
@@ -2242,7 +2255,7 @@ export function CanvasClient() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch {
       /* ignore */
     } finally {
@@ -2981,7 +2994,7 @@ export function CanvasClient() {
   if (!ready || !user) {
     return (
       <div className="container py-20 text-sm text-muted-foreground">
-        {t("canvas.loading")}
+        {ready && FRIENDS_MODE ? <div>工作台存储暂时不可用。<button onClick={() => window.location.reload()} className="ml-2 underline">重试</button></div> : t("canvas.loading")}
       </div>
     );
   }
@@ -3128,7 +3141,7 @@ export function CanvasClient() {
             >
               <ShoppingBag className="h-4 w-4" />
             </button>
-            <button
+            {!FRIENDS_MODE && <><button
               type="button"
               onClick={() => openModal("plans")}
               className="flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2.5 py-2 text-xs font-semibold text-amber-500 shadow-sm transition-colors hover:bg-amber-400/20"
@@ -3147,7 +3160,7 @@ export function CanvasClient() {
               className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-primary text-sm font-bold uppercase text-primary-foreground shadow-sm"
             >
               {user.email?.[0] ?? "U"}
-            </button>
+            </button></>}
           </div>
         </div>
       )}
@@ -3695,7 +3708,7 @@ export function CanvasClient() {
                 >
                   <ShoppingBag className="h-4 w-4" />
                 </button>
-                <button
+                {!FRIENDS_MODE && <><button
                   type="button"
                   onClick={() => openModal("plans")}
                   className="flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2.5 py-2 text-xs font-semibold text-amber-300 shadow-lg backdrop-blur transition-colors hover:bg-amber-400/20"
@@ -3714,7 +3727,7 @@ export function CanvasClient() {
                   className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-primary text-sm font-bold uppercase text-primary-foreground shadow-lg"
                 >
                   {user.email?.[0] ?? "U"}
-                </button>
+                </button></>}
               </div>
 
               {/* 底部中间:工具条(选中节点时淡出滑下让位给生成器,对齐原型 czbc) */}
@@ -4041,6 +4054,7 @@ export function CanvasClient() {
           {/* 上传图片作根节点(隐藏 input,右键「上传图片/添加节点」触发) */}
           <input
             ref={rootUploadRef}
+            data-testid="canvas-root-upload"
             type="file"
             accept="image/png,image/jpeg,image/webp"
             className="hidden"
@@ -4815,7 +4829,7 @@ export function CanvasClient() {
                 const items = (works ?? [])
                   .filter(
                     (w) =>
-                      w.status === "completed" && /^https?:\/\//.test(w.image)
+                      w.status === "completed" && (/^https?:\/\//.test(w.image) || w.image.startsWith("/media/"))
                   )
                   .slice(0, 60);
                 if (items.length === 0)

@@ -1,3 +1,4 @@
+import { artworkOwner } from "@/lib/artwork-owner";
 import { NextResponse } from "next/server";
 import { dbEnabled, addArtworks, setArtworkPosition } from "@/lib/db";
 import { uploadImage } from "@/lib/storage";
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: "请求格式不正确" }, { status: 400 });
     }
-    const email = String(fd.get("email") ?? "").trim();
+    const email = await artworkOwner(request, String(fd.get("email") ?? "").trim());
     const parentId = String(fd.get("parentId") ?? "").trim() || null;
     const title = String(fd.get("title") ?? "").trim() || "上传图片";
     // linked=1(拉线建的)→ 画连线(source≠canvas-add);否则独立无线
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "请求格式不正确" }, { status: 400 });
   }
-  const email = (body.email ?? "").trim();
+  const email = await artworkOwner(request, (body.email ?? "").trim());
   const src = body.src;
   if (!email || !src || !src.image) {
     return NextResponse.json({ error: "缺少参数" }, { status: 400 });

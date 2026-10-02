@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { authHeader } from "@/lib/supabase";
 import { BRAND } from "@/lib/brand";
@@ -142,6 +143,11 @@ export function BatchStudioClient() {
     ].filter(Boolean).join("；");
     form.append("text", requirements);
     form.append("platform", platform);
+    form.append("outputType", imageType);
+    form.append("ratio", ratio);
+    form.append("resolution", resolution);
+    form.append("expert", expert ? "1" : "0");
+    form.append("count", imageType === "main" ? "1" : "4");
     if (user?.email) form.append("email", user.email);
     const response = await fetch("/api/suite", {
       method: "POST",
@@ -156,7 +162,7 @@ export function BatchStudioClient() {
   async function submitAll() {
     setConfirming(false);
     setGlobalError(null);
-    if (!user) {
+    if (!user && !FRIENDS_MODE) {
       openAuth("sign-in");
       return;
     }
@@ -199,7 +205,7 @@ export function BatchStudioClient() {
   }
 
   const summary = useMemo(() => {
-    if (!submitting) return `${items.length} 个任务，预计消耗 ${estimated} 积分`;
+    if (!submitting) return FRIENDS_MODE ? `${items.length} 个任务，按顺序处理` : `${items.length} 个任务，预计消耗 ${estimated} 积分`;
     return `正在处理 ${completed + 1}/${items.length}，已完成 ${completed} 个任务`;
   }, [completed, estimated, items.length, submitting]);
 
@@ -265,12 +271,12 @@ export function BatchStudioClient() {
           <div className="sticky bottom-3 z-20 space-y-3 rounded-3xl border border-zinc-200 bg-white/95 p-4 shadow-lg backdrop-blur">
             <p className="text-center text-sm text-zinc-500">{summary}</p>
             {globalError && <p className="text-center text-xs text-red-600">{globalError}</p>}
-            <button type="button" disabled={submitting} onClick={() => user ? setConfirming(true) : openAuth("sign-in")} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 text-base font-semibold text-white disabled:opacity-60">{submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}{submitting ? "批量任务处理中" : "提交批量任务"}</button>
+            <button type="button" disabled={submitting} onClick={() => (user || FRIENDS_MODE) ? setConfirming(true) : openAuth("sign-in")} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 text-base font-semibold text-white disabled:opacity-60">{submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}{submitting ? "批量任务处理中" : "提交批量任务"}</button>
           </div>
         </section>
       </main>
 
-      {confirming && <div className="fixed inset-0 z-[90] grid place-items-center bg-black/30 p-4"><div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">确认提交批量任务</h2><p className="mt-2 text-sm leading-6 text-zinc-500">将提交 {items.length} 个商品任务，预计消耗 {estimated} 积分。任务会按顺序排队处理。</p><div className="mt-6 flex justify-end gap-2"><button onClick={() => setConfirming(false)} className="h-10 rounded-xl border border-zinc-200 px-4 text-sm font-semibold">取消</button><button onClick={submitAll} className="flex h-10 items-center gap-2 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white"><Check className="h-4 w-4" />确认提交</button></div></div></div>}
+      {confirming && <div className="fixed inset-0 z-[90] grid place-items-center bg-black/30 p-4"><div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">确认提交批量任务</h2><p className="mt-2 text-sm leading-6 text-zinc-500">将提交 {items.length} 个商品任务，按顺序排队处理。</p><div className="mt-6 flex justify-end gap-2"><button onClick={() => setConfirming(false)} className="h-10 rounded-xl border border-zinc-200 px-4 text-sm font-semibold">取消</button><button onClick={submitAll} className="flex h-10 items-center gap-2 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white"><Check className="h-4 w-4" />确认提交</button></div></div></div>}
     </div>
   );
 }

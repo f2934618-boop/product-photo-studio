@@ -13,6 +13,7 @@ import { BRAND } from "@/lib/brand";
 import { supabaseEnabled } from "@/lib/auth-mode";
 import { authHeader } from "@/lib/supabase";
 import { clearPendingReferralCode } from "@/lib/referral";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 
 // ---------------------------------------------------------------------------
 // Session + membership state.
@@ -155,6 +156,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (FRIENDS_MODE) {
+        try {
+          const response = await fetch("/api/workspace-session");
+          const data = await response.json();
+          if (!cancelled && response.ok && data.user) {
+            setUser(data.user);
+            serverRef.current = !!data.persisted;
+            setPersistMode(data.persisted ? "server" : "local");
+          }
+        } catch { /* independent browser tools remain available */ }
+        finally { if (!cancelled) setReady(true); }
+        return;
+      }
       let lastEmail: string | null = null;
       try {
         lastEmail = localStorage.getItem(LAST_KEY);

@@ -20,7 +20,7 @@ export function downloadImage(url: string, _baseName?: string) {
   ).replace(/[^\w.\-]+/g, "_");
   const name = `${host}_${y}_${md}_${rand}.png`;
   const a = document.createElement("a");
-  if (url.startsWith("data:")) {
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
     a.href = url;
   } else {
     a.href = `/api/download?u=${encodeURIComponent(

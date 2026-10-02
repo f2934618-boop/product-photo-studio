@@ -26,7 +26,7 @@ export async function GET(
   if (
     !segs.length ||
     segs.some(
-      (s) => s === ".." || s.includes("\0") || s.includes("/") || s.includes("\\")
+      (s) => s.startsWith(".") || s.includes("\0") || s.includes("/") || s.includes("\\")
     )
   ) {
     return new Response("Bad request", { status: 400 });

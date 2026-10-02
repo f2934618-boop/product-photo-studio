@@ -19,6 +19,7 @@ import { useAuth, type SessionUser } from "@/lib/auth-context";
 import { downloadImage } from "@/lib/download";
 import { authHeader } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 
 const MAX_FILES = 50;
 const MAX_FILE_SIZE = 12 * 1024 * 1024;
@@ -35,6 +36,7 @@ type ResultImage = {
   url: string;
   name: string;
   status: "done" | "error";
+  error?: string;
 };
 
 type CutoutResponse = {
@@ -63,7 +65,7 @@ class RemoteCutoutError extends Error {
 let localCutoutWorker: Worker | null = null;
 let localCutoutRequest = 0;
 
-function cutoutLocally(
+export function cutoutLocally(
   file: File,
   whiteBackground: boolean,
   ratio: string,
@@ -138,9 +140,9 @@ export function BatchMattingClient() {
   const [ratio, setRatio] = useState("3:4");
   // Picset-style output is the primary workflow. The pixel-preserving local
   // cutout remains available as an explicit alternative.
-  const [mode, setMode] = useState<"cutout" | "reshoot">("reshoot");
+  const [mode, setMode] = useState<"cutout" | "reshoot">("cutout");
   const [aiQuality, setAiQuality] = useState<"standard" | "quality">(
-    "quality"
+    "standard"
   );
   const [whiteBackground, setWhiteBackground] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -162,22 +164,24 @@ export function BatchMattingClient() {
   }, []);
 
   function addFiles(list: FileList | null) {
-    if (!list) return;
+    if (!list || busy) return;
+    const rejected = Array.from(list).filter((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > MAX_FILE_SIZE || !file.size);
     const accepted = Array.from(list)
-      .filter((file) => file.type.startsWith("image/") && file.size <= MAX_FILE_SIZE)
+      .filter((file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size > 0 && file.size <= MAX_FILE_SIZE)
       .slice(0, Math.max(0, MAX_FILES - files.length));
-    if (!accepted.length) return;
+    if (!accepted.length) { setErrors(["请选择 JPG、PNG、WebP 图片，单张不超过 12MB"]); return; }
     setFiles((current) => [...current, ...accepted]);
     setPreviews((current) => [
       ...current,
       ...accepted.map((file) => URL.createObjectURL(file)),
     ]);
-    setErrors([]);
+    setErrors(rejected.length ? [`${rejected.length} 张图片格式不支持或超过 12MB，已跳过`] : []);
     setResults([]);
     setSelected(new Set());
   }
 
   function removeAt(index: number) {
+    if (busy) return;
     URL.revokeObjectURL(previews[index]);
     setFiles((current) => current.filter((_, i) => i !== index));
     setPreviews((current) => current.filter((_, i) => i !== index));
@@ -186,6 +190,7 @@ export function BatchMattingClient() {
   }
 
   function clearFiles() {
+    if (busy) return;
     previews.forEach((url) => URL.revokeObjectURL(url));
     setFiles([]);
     setPreviews([]);
@@ -320,7 +325,7 @@ export function BatchMattingClient() {
           continue;
         }
         // 访客直接在浏览器本地处理：不需要登录，也不会把原图上传到服务器。
-        if (!user?.email) {
+        if (FRIENDS_MODE || !user?.email) {
           next.push(await runLocal());
           setResults([...next]);
           setProgress(Math.round(((index + 1) / files.length) * 100));
@@ -352,9 +357,10 @@ export function BatchMattingClient() {
             );
             next.push({
               id: `cut-${index}`,
-              url: previews[index],
+              url: "",
               name: resultName(file.name, index),
               status: "error",
+              error: localError instanceof Error ? localError.message : remoteError.message,
             });
           }
         } else {
@@ -362,9 +368,10 @@ export function BatchMattingClient() {
           messages.push(remoteError.message);
           next.push({
             id: `cut-${index}`,
-            url: previews[index],
+            url: "",
             name: resultName(file.name, index),
             status: "error",
+            error: remoteError.message,
           });
           if (
             remoteError.status === 402 ||
@@ -413,7 +420,7 @@ export function BatchMattingClient() {
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
       if (failed.length) setErrors([`以下图片未能加入 ZIP：${failed.join("、")}`]);
     } catch (error) {
       setErrors([error instanceof Error ? error.message : "ZIP 生成失败"]);
@@ -454,6 +461,7 @@ export function BatchMattingClient() {
                 <div className="studio-segmented">
                   <button
                     type="button"
+                    disabled={busy}
                     className={mode === "cutout" ? "is-active" : ""}
                     onClick={() => setMode("cutout")}
                   >
@@ -461,6 +469,7 @@ export function BatchMattingClient() {
                   </button>
                   <button
                     type="button"
+                    disabled={busy}
                     className={mode === "reshoot" ? "is-active" : ""}
                     onClick={() => {
                       setMode("reshoot");
@@ -502,8 +511,8 @@ export function BatchMattingClient() {
                     value={aiQuality}
                     onChange={(value) => setAiQuality(value === "quality" ? "quality" : "standard")}
                     options={[
-                      { value: "quality", label: "精细 9B（推荐）" },
-                      { value: "standard", label: "标准 4B（速度更快）" },
+                      { value: "standard", label: "标准（速度更快）" },
+                      { value: "quality", label: "精细" },
                     ]}
                   />
                 ) : (
@@ -517,8 +526,9 @@ export function BatchMattingClient() {
               </div>
 
               {errors.length > 0 && (
-                <div className="studio-error">
+                <div className="studio-error" role="alert">
                   {errors.map((message) => <div key={message}>{message}</div>)}
+                  {mode === "reshoot" && !busy && <button type="button" className="mt-2 underline" onClick={() => { setMode("cutout"); setErrors([]); setResults([]); }}>切换快速抠图</button>}
                 </div>
               )}
               <button
@@ -568,7 +578,7 @@ export function BatchMattingClient() {
                   return (
                     <article key={result.id} className={cn("studio-result", checked && "is-selected", result.status === "error" && "is-error")}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={result.url} alt={`抠图结果 ${index + 1}`} />
+                      {result.status === "done" ? <img src={result.url} alt={`处理结果 ${index + 1}`} /> : <div role="alert" className="flex aspect-square items-center justify-center p-8 text-center text-sm text-red-600">{result.error || "这张图片处理失败，请重试"}</div>}
                       {result.status === "done" && (
                         <button
                           className="studio-result-check"
@@ -586,7 +596,7 @@ export function BatchMattingClient() {
                         {result.status === "done" && (
                           <button type="button" onClick={() => downloadImage(result.url, result.name)}><Download />下载</button>
                         )}
-                        <button type="button" onClick={() => { setResults([]); setSelected(new Set()); }}><RefreshCw />再生成</button>
+                        <button type="button" disabled={busy} onClick={runMatting}><RefreshCw />再生成</button>
                       </div>
                     </article>
                   );
