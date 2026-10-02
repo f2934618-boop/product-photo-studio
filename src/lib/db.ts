@@ -36,6 +36,14 @@ function getPool(): Pool {
       connectionString,
       ssl: noSsl ? false : { rejectUnauthorized: false },
       max: 5,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 15000,
+      keepAlive: true,
+    });
+    // A hosted database can close an idle connection. pg removes that client;
+    // handle its pool event so it cannot crash unrelated tools or downloads.
+    pool.on('error', (error: Error & { code?: string }) => {
+      console.error('[database] idle connection closed:', error.code || 'disconnected');
     });
   }
   return pool;
@@ -314,7 +322,10 @@ async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS app_developer_api_keys_owner_idx
           ON app_developer_api_keys (email, created_at DESC);
       `);
-    })();
+    })().catch((error) => {
+      schemaReady = null;
+      throw error;
+    });
   }
   return schemaReady;
 }

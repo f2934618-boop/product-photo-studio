@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { clientIp } from "@/lib/ip";
 import { rateLimit } from "@/lib/rate-limit";
+import { readLocalMedia } from "@/lib/local-media";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -138,19 +139,25 @@ export async function POST(request: Request) {
           u.hostname === "novaryns.com" ||
           u.hostname.endsWith(".novaryns.com");
         if (!allowed) continue;
-        const res = await fetch(u, { cache: "no-store" });
-        if (!res.ok) continue;
-        const contentType = (res.headers.get("content-type") || "").toLowerCase();
-        if (!contentType.startsWith("image/")) continue;
-        buf = await readBounded(res, itemLimit);
-        const pathExt = u.pathname.match(/\.(png|jpe?g|webp)$/i)?.[1];
-        ext = pathExt
-          ? pathExt.toLowerCase().replace("jpeg", "jpg")
-          : contentType.includes("jpeg")
-            ? "jpg"
-            : contentType.includes("webp")
-              ? "webp"
-              : "png";
+        if (u.origin === requestOrigin && u.pathname.startsWith("/media/")) {
+          const local = await readLocalMedia(u.pathname, itemLimit);
+          buf = local.bytes;
+          ext = local.ext;
+        } else {
+          const res = await fetch(u, { cache: "no-store", signal: AbortSignal.timeout(30000) });
+          if (!res.ok) continue;
+          const contentType = (res.headers.get("content-type") || "").toLowerCase();
+          if (!contentType.startsWith("image/")) continue;
+          buf = await readBounded(res, itemLimit);
+          const pathExt = u.pathname.match(/\.(png|jpe?g|webp)$/i)?.[1];
+          ext = pathExt
+            ? pathExt.toLowerCase().replace("jpeg", "jpg")
+            : contentType.includes("jpeg")
+              ? "jpg"
+              : contentType.includes("webp")
+                ? "webp"
+                : "png";
+        }
       }
 
       if (!buf || buf.length === 0 || buf.length > itemLimit) continue;

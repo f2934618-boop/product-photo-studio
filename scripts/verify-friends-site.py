@@ -225,7 +225,7 @@ async def main():
             await page.reload(wait_until='domcontentloaded')
             await page.locator('.react-flow__node').first.wait_for(timeout=30000)
             download_button = page.get_by_title('下载本项目', exact=True)
-            async with page.expect_download() as event:
+            async with page.expect_download(timeout=120000) as event:
                 await download_button.click()
             await (await event.value).save_as(out/'canvas-project.zip')
             with zipfile.ZipFile(out/'canvas-project.zip') as archive: assert len(archive.namelist()) == 1
@@ -268,9 +268,9 @@ async def main():
                 assert data.get('expert') == 'true', 'expert parameter ignored: '+str(data)
                 assert data.get('count') == '1', str(data)
             await no_business(page)
-            failures = page.get_by_text('AI 服务暂时不可用，请稍后重试；快速抠图仍可使用。', exact=True)
+            failures = page.locator('article p.text-red-600')
             if await failures.count() == 2:
-                report['features']['批量商品图'] = 'BLOCKED: both actual queued jobs failed at image provider'
+                report['features']['批量商品图'] = 'BLOCKED: '+ '; '.join(await failures.all_inner_texts())
                 assert await page.get_by_text('下载 ZIP', exact=True).count() == 0
             else:
                 report['features']['批量商品图'] = 'REVIEW REQUIRED: inspect actual results'

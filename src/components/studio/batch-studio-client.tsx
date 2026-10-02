@@ -179,7 +179,7 @@ export function BatchStudioClient() {
       } catch (error) {
         patchItem(item.id, {
           status: "error",
-          error: error instanceof Error ? error.message : "任务生成失败",
+          error: error instanceof Error && error.message !== 'Failed to fetch' ? error.message : "网络连接失败，请稍后重试",
         });
       }
     }

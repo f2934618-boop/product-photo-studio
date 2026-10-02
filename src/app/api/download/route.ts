@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readLocalMedia } from "@/lib/local-media";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +57,15 @@ export async function GET(request: Request) {
   }
 
   try {
+    if (sameOrigin) {
+      if (!target.pathname.startsWith('/media/')) return NextResponse.json({error:'不允许的来源'}, {status:403});
+      const local = await readLocalMedia(target.pathname, 32 * 1024 * 1024);
+      return new Response(new Uint8Array(local.bytes), { headers: {
+        'Content-Type': local.type,
+        'Content-Disposition': `attachment; filename="${name}"`,
+        'Cache-Control': 'no-store',
+      } });
+    }
     const upstream = await fetch(target.toString(), {
       signal: AbortSignal.timeout(30_000),
     });

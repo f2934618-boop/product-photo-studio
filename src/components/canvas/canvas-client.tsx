@@ -2246,7 +2246,10 @@ export function CanvasClient() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ items }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "项目下载失败，请稍后重试");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -2256,8 +2259,8 @@ export function CanvasClient() {
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      flashTip(error instanceof Error && error.message !== 'Failed to fetch' ? error.message : "项目下载失败，请检查网络后重试");
     } finally {
       setZipping(false);
     }
