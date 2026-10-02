@@ -198,6 +198,9 @@ const REFINEMENT_OPERATIONS: { value: RefinementOperation; label: string; endpoi
   { value: "dewrinkle", label: "服装去皱", endpoint: "/api/dewrinkle" },
   { value: "dewatermark", label: "去水印", endpoint: "/api/dewatermark" },
 ];
+const FRIENDS_REFINEMENT_OPERATIONS = REFINEMENT_OPERATIONS.filter(
+  (item) => item.value === "white-background"
+);
 
 class StudioRequestError extends Error {
   constructor(message: string, readonly status: number | null) {
@@ -310,6 +313,7 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
   const [whiteBackground, setWhiteBackground] = useState(true);
   const [refinementOperation, setRefinementOperation] = useState<RefinementOperation>("white-background");
   const [refinementScale, setRefinementScale] = useState("2");
+  const refinementOperations = FRIENDS_MODE ? FRIENDS_REFINEMENT_OPERATIONS : REFINEMENT_OPERATIONS;
 
   const modeTabs = useMemo(() => {
     if (mode === "mirror") return ["单图复刻", "批量复刻", "包装复刻"];
@@ -897,7 +901,7 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
                     setStep(0);
                     setProgress(0);
                   }}
-                  options={REFINEMENT_OPERATIONS}
+                  options={refinementOperations}
                 />
               )}
 

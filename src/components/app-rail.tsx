@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/lib/brand-context";
+import { FRIENDS_MODE } from "@/lib/friends-mode";
 
 type NavItem = {
   href: string;
@@ -31,7 +32,7 @@ type NavItem = {
   aliases?: string[];
 };
 
-const ITEMS: NavItem[] = [
+const ALL_ITEMS: NavItem[] = [
   { href: "/batch-matting", label: "商品白底图", icon: Scissors, aliases: ["/cutout", "/batch-cutout"] },
   { href: "/studio-genesis", label: "全品类商品图", icon: Sparkles, aliases: ["/suite"] },
   { href: "/aesthetic-mirror", label: "风格复刻", icon: ImageIcon, aliases: ["/style", "/style-copy"] },
@@ -43,6 +44,14 @@ const ITEMS: NavItem[] = [
   { href: "/canvas-studio", label: "万能画布", icon: PenTool, badge: "Beta", aliases: ["/canvas"] },
   { href: "/video-studio", label: "电商视频", icon: Play, badge: "Beta", aliases: ["/generate", "/ecommerce-video"] },
 ];
+
+const FRIENDS_ITEMS: NavItem[] = [
+  { href: "/batch-matting", label: "商品白底图", icon: Scissors, aliases: ["/cutout", "/batch-cutout"] },
+  { href: "/refinement-studio", label: "图片精修", icon: Wand2, aliases: ["/image-retouch"] },
+  { href: "/canvas-studio", label: "万能画布", icon: PenTool, aliases: ["/canvas", "/history"] },
+];
+
+const ITEMS = FRIENDS_MODE ? FRIENDS_ITEMS : ALL_ITEMS;
 
 function activeFor(path: string, item: NavItem) {
   return path === item.href || path.startsWith(`${item.href}/`) || !!item.aliases?.some((p) => path === p || path.startsWith(`${p}/`));

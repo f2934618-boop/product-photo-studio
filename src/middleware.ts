@@ -12,11 +12,15 @@ export function middleware(req: NextRequest) {
       "/invite": "/batch-matting", "/developer-api": "/batch-matting", "/api-access": "/batch-matting",
       "/history": "/canvas-studio", "/checkout": "/batch-matting", "/security": "/batch-matting",
       "/cutout": "/batch-matting", "/batch-cutout": "/batch-matting",
-      "/style": "/aesthetic-mirror", "/style-copy": "/aesthetic-mirror", "/fuse": "/sku-replace",
-      "/tryon": "/clothing-studio", "/garment": "/clothing-studio", "/garment3d": "/clothing-studio",
-      "/avatar": "/buyer-show", "/variations": "/buyer-show",
+      "/studio-genesis": "/batch-matting", "/studio-genesis/batch": "/batch-matting",
+      "/aesthetic-mirror": "/batch-matting", "/sku-replace": "/batch-matting",
+      "/clothing-studio": "/batch-matting", "/buyer-show": "/batch-matting",
+      "/batch-translation": "/batch-matting", "/video-studio": "/batch-matting",
+      "/style": "/batch-matting", "/style-copy": "/batch-matting", "/fuse": "/batch-matting",
+      "/tryon": "/batch-matting", "/garment": "/batch-matting", "/garment3d": "/batch-matting",
+      "/avatar": "/batch-matting", "/variations": "/batch-matting",
       "/upscale": "/refinement-studio", "/dewrinkle": "/refinement-studio", "/dewatermark": "/refinement-studio", "/inpaint": "/refinement-studio",
-      "/generate": "/video-studio", "/suite": "/studio-genesis",
+      "/generate": "/batch-matting", "/suite": "/batch-matting",
     };
     if (destinations[pathname]) return NextResponse.redirect(new URL(destinations[pathname], req.url));
   }

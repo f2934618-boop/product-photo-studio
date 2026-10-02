@@ -44,7 +44,10 @@ async def main():
         page = await context.new_page()
         page.on('pageerror', lambda error: report['page_errors'].append(str(error)))
 
-        for route in ['/batch-matting','/studio-genesis','/aesthetic-mirror','/sku-replace','/clothing-studio','/buyer-show','/refinement-studio','/batch-translation','/canvas-studio','/video-studio','/studio-genesis/batch']:
+        visible_routes = ['/batch-matting','/refinement-studio','/canvas-studio']
+        disabled_routes = ['/studio-genesis','/aesthetic-mirror','/sku-replace','/clothing-studio','/buyer-show','/batch-translation','/video-studio','/studio-genesis/batch']
+
+        for route in visible_routes:
             async def check_page(route=route):
                 response = await page.goto(args.base + route, wait_until='domcontentloaded')
                 assert response.status == 200
@@ -52,8 +55,16 @@ async def main():
                 await page.wait_for_timeout(1800)
                 await no_business(page)
                 assert not await page.get_by_text('加载中…', exact=True).count(), 'stuck loading'
-                return 'Page renders without login/billing; generation tested separately'
+                return 'Visible friend tool renders without login, billing or disabled AI wording'
             await record('page ' + route, check_page)
+
+        async def disabled_redirects():
+            for route in disabled_routes:
+                await page.goto(args.base+route, wait_until='domcontentloaded')
+                assert page.url.endswith('/batch-matting'), route+' -> '+page.url
+                await no_business(page)
+            return 'Unavailable AI routes redirect to the working white-background tool'
+        await record('disabled AI routes hidden', disabled_redirects)
 
         async def billing_redirects():
             for route in ['/sign-in','/pricing','/account','/invite']:
@@ -154,66 +165,17 @@ async def main():
             return 'Unsupported type and oversized file rejected before processing'
         await record('upload format and size validation', upload_validation)
 
-        async def failure_flow():
-            await page.goto(args.base+'/batch-matting')
-            await page.locator('input[type=file]').set_input_files(str(source))
-            await page.get_by_role('button', name='AI 商品重拍', exact=True).click()
-            await page.locator('.studio-primary').click()
-            await settled(page)
-            if await page.locator('.studio-result img').count():
-                report['features']['AI 商品重拍'] = 'GENERATED: requires visual quality review'
-                await page.screenshot(path=str(out/'reshoot-success.png'), full_page=True)
-                return 'Actual model returned an image, not a mock'
-            error = await page.locator('.studio-error').inner_text()
-            assert '不可用' in error or '失败' in error
-            assert await page.locator('.studio-result img').count() == 0, 'original must not be a fake result'
-            await no_business(page)
-            report['features']['AI 商品重拍'] = 'BLOCKED: '+error.split('\n')[0]
-            await page.screenshot(path=str(out/'reshoot-failure.png'), full_page=True)
-            await page.get_by_role('button', name='切换快速抠图').click()
-            await page.locator('.studio-primary').click()
-            await page.locator('.studio-result img').wait_for(timeout=180000)
-            return 'Error shown without original-as-result; explicit cutout recovery succeeds'
-        await record('AI failure and explicit free recovery', failure_flow)
-
-        for route, feature in [('/studio-genesis','全品类商品图'),('/aesthetic-mirror','风格复刻'),('/sku-replace','SKU 替换'),('/clothing-studio','服装组图'),('/buyer-show','买家秀'),('/batch-translation','图片翻译')]:
-            async def generation(route=route, feature=feature):
-                await page.goto(args.base+route)
-                for inp in await page.locator('input[type=file]').all(): await inp.set_input_files(str(source))
-                await page.locator('textarea').first.fill('保留商品包装、文字、图案和结构，不添加虚构卖点。')
-                count = page.locator('.studio-field').filter(has=page.locator('label', has_text='生成数量')).locator('select')
-                if await count.count(): await count.select_option(label='1 张')
-                await page.locator('.studio-primary').click()
-                await settled(page)
-                if route == '/studio-genesis' and await page.get_by_role('button', name='按分镜生成图片').count():
-                    assert await page.locator('textarea').count() >= 2
-                    await page.get_by_role('button', name='按分镜生成图片').click()
-                    await settled(page)
-                await no_business(page)
-                if await page.locator('.studio-result img').count():
-                    report['features'][feature] = 'GENERATED: needs content and quality review'
-                else:
-                    error = await page.locator('.studio-error').inner_text()
-                    report['features'][feature] = 'BLOCKED: '+error
-                    assert '登录' not in error and '积分' not in error
-                return report['features'][feature]
-            await record('actual submission '+feature, generation)
-
         async def refinement():
             await page.goto(args.base+'/refinement-studio')
+            assert await page.get_by_role('option', name='高清放大').count() == 0
+            assert await page.get_by_role('option', name='服装去皱').count() == 0
+            assert await page.get_by_role('option', name='去水印').count() == 0
             await page.locator('input[type=file]').set_input_files(str(second))
             await page.locator('.studio-primary').click()
             await page.locator('.studio-result img').wait_for(timeout=180000)
             await settled(page)
             report['features']['图片精修：白底'] = 'PASS: actual browser output'
-            for label in ['高清放大','服装去皱','去水印']:
-                await page.locator('select').filter(has=page.locator('option', has_text=label)).select_option(label=label)
-                await page.locator('.studio-primary').click()
-                await settled(page)
-                await no_business(page)
-                if await page.locator('.studio-result img').count(): report['features']['图片精修：'+label] = 'GENERATED: review required'
-                else: report['features']['图片精修：'+label] = 'BLOCKED: '+await page.locator('.studio-error').inner_text()
-            return 'White background works; upscale/AI edit availability separately recorded'
+            return 'White-background refinement works; unavailable AI refinement options are hidden'
         await record('refinement operations', refinement)
 
         async def canvas():
@@ -235,49 +197,6 @@ async def main():
             return 'Uploaded node saved to private anonymous workspace'
         await record('canvas upload and persistence', canvas)
 
-        async def batch():
-            await page.goto(args.base+'/studio-genesis/batch', wait_until='domcontentloaded')
-            await page.locator('input[type=file]').set_input_files(str(second))
-            await page.get_by_role('button', name='添加商品任务', exact=True).click()
-            await page.locator('input[type=file]').nth(1).set_input_files(str(source))
-            await page.locator('textarea').nth(0).fill('礼盒，保持原图文字。')
-            await page.locator('textarea').nth(1).fill('礼盒，保持原图结构。')
-            await page.locator('select').nth(2).select_option('3:4')
-            await page.locator('input[type=checkbox]').check()
-            # Observe submitted FormData while forwarding the real fetch. Chrome
-            # does not expose multipart file request bodies through post_data.
-            await page.evaluate("""() => {
-              const fetchReal = window.fetch.bind(window);
-              window.batchSubmittedFields = [];
-              window.fetch = (url, options = {}) => {
-                if (url === '/api/suite' && options.body instanceof FormData) {
-                  window.batchSubmittedFields.push(Object.fromEntries(
-                    [...options.body.entries()].filter(([key]) => ['ratio','expert','count','outputType'].includes(key))));
-                }
-                return fetchReal(url, options);
-              };
-            }""")
-            await page.get_by_role('button', name='提交批量任务', exact=True).click()
-            await no_business(page)
-            await page.get_by_role('button', name='确认提交', exact=True).click()
-            await page.get_by_role('button', name='提交批量任务', exact=True).wait_for(timeout=90000)
-            submitted = await page.evaluate('window.batchSubmittedFields')
-            assert len(submitted) == 2, 'jobs submitted: '+str(len(submitted))
-            for data in submitted:
-                assert data.get('ratio') == '3:4', str(data)
-                assert data.get('expert') == 'true', 'expert parameter ignored: '+str(data)
-                assert data.get('count') == '1', str(data)
-            await no_business(page)
-            failures = page.locator('article p.text-red-600')
-            if await failures.count() == 2:
-                report['features']['批量商品图'] = 'BLOCKED: '+ '; '.join(await failures.all_inner_texts())
-                assert await page.get_by_text('下载 ZIP', exact=True).count() == 0
-            else:
-                report['features']['批量商品图'] = 'REVIEW REQUIRED: inspect actual results'
-            await page.screenshot(path=str(out/'batch-tasks.png'), full_page=True)
-            return 'Two products submitted sequentially, parameters forwarded, no login/payment confirmation'
-        await record('batch queue and real submission parameters', batch)
-
         async def isolation():
             session = await context.request.get(args.base+'/api/workspace-session')
             owner = (await session.json())['user']['email']
@@ -290,34 +209,9 @@ async def main():
             return 'Another browser cannot read private workspace; guest cannot enter admin'
         await record('anonymous workspace isolation', isolation)
 
-        async def video():
-            await page.goto(args.base+'/video-studio')
-            await page.locator('textarea').first.fill('唐山特产礼盒，展示真实包装。')
-            helper = page.get_by_role('button', name=re.compile('生成脚本|生成分镜|帮写脚本|一键帮写'))
-            if await helper.count(): await helper.first.click()
-            else: await page.locator('textarea').last.fill('展示真实商品包装和细节。')
-            await page.get_by_role('button', name='保存草稿', exact=True).click()
-            saved = await page.evaluate("JSON.parse(localStorage.getItem('novaryns-video-studio-drafts-v1') || '[]')")
-            assert len(saved) == 1 and saved[0]['script'].strip()
-            await page.reload(wait_until='domcontentloaded')
-            await page.get_by_text(saved[0]['title'], exact=True).wait_for()
-            await page.get_by_text(saved[0]['title'], exact=True).click()
-            assert await page.locator('textarea').last.input_value() == saved[0]['script']
-            await no_business(page)
-            report['features']['电商视频：脚本草稿'] = 'PASS: editable script saved'
-            status = await context.request.get(args.base+'/api/tool-status')
-            report['features']['电商视频：生成'] = 'BLOCKED: no video service configured' if not (await status.json())['video'] else 'NOT TESTED'
-            if not (await status.json())['video']:
-                await page.get_by_role('button', name='立即生成视频', exact=True).click()
-                error = page.locator('p.text-red-700')
-                await error.wait_for(timeout=10000)
-                assert '暂未配置' in await error.inner_text(), await error.inner_text()
-            return report['features']['电商视频：生成']
-        await record('video script and true service availability', video)
-
         async def mobile():
             await page.set_viewport_size({'width':375,'height':812})
-            for route in ['/batch-matting','/aesthetic-mirror','/video-studio']:
+            for route in ['/batch-matting','/refinement-studio','/canvas-studio']:
                 await page.goto(args.base+route)
                 await page.wait_for_timeout(700)
                 assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), 'horizontal overflow '+route

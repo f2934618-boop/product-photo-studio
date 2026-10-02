@@ -164,6 +164,7 @@ export function BatchMattingClient() {
   const [results, setResults] = useState<ResultImage[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const reshootAvailable = !FRIENDS_MODE;
 
   useEffect(() => {
     previewUrls.current = previews;
@@ -446,8 +447,8 @@ export function BatchMattingClient() {
     <div className="studio-page">
       <section className="studio-hero">
         <span className="studio-kicker"><Sparkles />商品白底图</span>
-        <h1>快速抠图或 AI 商品重拍</h1>
-        <p>AI 商品重拍生成棚拍白底和自然接地阴影；快速抠图保留原图商品细节</p>
+        <h1>商品白底图 / 透明底图</h1>
+        <p>浏览器本地处理图片，保留原图商品细节，支持统一比例与批量下载</p>
       </section>
 
       <section className="studio-workspace">
@@ -471,29 +472,33 @@ export function BatchMattingClient() {
             <section className="studio-card studio-form-card">
               <div className="studio-field">
                 <label>处理模式</label>
-                <div className="studio-segmented">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={mode === "cutout" ? "is-active" : ""}
-                    onClick={() => setMode("cutout")}
-                  >
-                    快速抠图
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={mode === "reshoot" ? "is-active" : ""}
-                    onClick={() => {
-                      setMode("reshoot");
-                      setWhiteBackground(true);
-                    }}
-                  >
-                    AI 商品重拍
-                  </button>
-                </div>
+                {reshootAvailable && (
+                  <div className="studio-segmented">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className={mode === "cutout" ? "is-active" : ""}
+                      onClick={() => setMode("cutout")}
+                    >
+                      快速抠图
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className={mode === "reshoot" ? "is-active" : ""}
+                      onClick={() => {
+                        setMode("reshoot");
+                        setWhiteBackground(true);
+                      }}
+                    >
+                      AI 商品重拍
+                    </button>
+                  </div>
+                )}
                 <p className="text-xs leading-5 text-muted-foreground">
-                  {mode === "cutout"
+                  {!reshootAvailable
+                    ? "浏览器本地处理，原图留在当前浏览器，不上传到云端。"
+                    : mode === "cutout"
                     ? "浏览器本地处理，速度快，商品内容保持原样。"
                     : "生成式重拍会补全遮挡并改善构图、灯光和阴影，包装文字可能有细微变化。"}
                 </p>
@@ -512,13 +517,13 @@ export function BatchMattingClient() {
                   type="button"
                   onClick={() => setPrompt(mode === "reshoot" ? "保持商品原有视角和包装细节，使用柔和棚拍灯光与轻微接地阴影。" : "保留发丝、半透明材质、镂空、细小配件和真实边缘，主体外内容全部移除。")}
                 >
-                  <Wand2 />AI帮写
+                  <Wand2 />{reshootAvailable ? "AI帮写" : "填入建议"}
                 </button>
               </div>
 
               <div className="studio-two-fields">
                 <SelectField label="尺寸比例" value={ratio} onChange={setRatio} options={RATIO_OPTIONS} />
-                {mode === "reshoot" ? (
+                {reshootAvailable && mode === "reshoot" ? (
                   <SelectField
                     label="AI 质量"
                     value={aiQuality}
@@ -541,7 +546,7 @@ export function BatchMattingClient() {
               {errors.length > 0 && (
                 <div className="studio-error" role="alert">
                   {errors.map((message) => <div key={message}>{message}</div>)}
-                  {mode === "reshoot" && !busy && <button type="button" className="mt-2 underline" onClick={() => { setMode("cutout"); setErrors([]); setResults([]); }}>切换快速抠图</button>}
+                  {reshootAvailable && mode === "reshoot" && !busy && <button type="button" className="mt-2 underline" onClick={() => { setMode("cutout"); setErrors([]); setResults([]); }}>切换快速抠图</button>}
                 </div>
               )}
               <button
@@ -556,7 +561,7 @@ export function BatchMattingClient() {
                 {busy
                   ? `${mode === "reshoot" ? "AI 重拍中" : "处理中"} ${progress}%`
                   : files.length
-                    ? `${mode === "reshoot" ? "开始 AI 商品重拍" : "开始抠图"}（${files.length} 张）`
+                    ? `${reshootAvailable && mode === "reshoot" ? "开始 AI 商品重拍" : "开始抠图"}（${files.length} 张）`
                     : "请先上传图片"}
               </button>
               {files.length === 0 && (
