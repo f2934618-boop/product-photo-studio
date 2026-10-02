@@ -80,6 +80,18 @@ export function cutoutLocally(
   const worker = localCutoutWorker;
   const id = ++localCutoutRequest;
   return new Promise<string>(async (resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timeout);
+      worker.removeEventListener("message", listener);
+      worker.removeEventListener("error", failed);
+    };
+    const failed = () => {
+      cleanup();
+      worker.terminate();
+      if (localCutoutWorker === worker) localCutoutWorker = null;
+      reject(new Error("图片处理超时或浏览器内存不足，请关闭多余标签后重试"));
+    };
+    const timeout = setTimeout(failed, 120000);
     const listener = (event: MessageEvent) => {
       const data = event.data as {
         id: number;
@@ -93,7 +105,7 @@ export function cutoutLocally(
         onProgress(data.value ?? 0);
         return;
       }
-      worker.removeEventListener("message", listener);
+      cleanup();
       if (data.kind === "error" || !data.bytes) {
         reject(new Error(data.error || "本地抠图失败"));
         return;
@@ -101,6 +113,7 @@ export function cutoutLocally(
       resolve(URL.createObjectURL(new Blob([data.bytes], { type: "image/png" })));
     };
     worker.addEventListener("message", listener);
+    worker.addEventListener("error", failed);
     try {
       const bytes = await file.arrayBuffer();
       worker.postMessage(
@@ -108,7 +121,7 @@ export function cutoutLocally(
         [bytes]
       );
     } catch (error) {
-      worker.removeEventListener("message", listener);
+      cleanup();
       reject(error);
     }
   });
@@ -434,7 +447,7 @@ export function BatchMattingClient() {
       <section className="studio-hero">
         <span className="studio-kicker"><Sparkles />商品白底图</span>
         <h1>快速抠图或 AI 商品重拍</h1>
-        <p>AI 商品重拍生成棚拍白底和自然接地阴影；快速抠图用于完全保留原图像素</p>
+        <p>AI 商品重拍生成棚拍白底和自然接地阴影；快速抠图保留原图商品细节</p>
       </section>
 
       <section className="studio-workspace">

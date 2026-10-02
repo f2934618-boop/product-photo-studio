@@ -21,11 +21,11 @@ function progress(id: number, value: number, message: string) {
 async function getSession(id: number) {
   if (!sessionPromise) {
     ort.env.wasm.numThreads = 1;
-    ort.env.wasm.wasmPaths = "/runtime/";
+    ort.env.wasm.wasmPaths = "/api/cutout-assets/v1/";
     ort.env.logLevel = "error";
     sessionPromise = (async () => {
       progress(id, 8, "首次使用，正在加载本地抠图模型…");
-      const response = await fetch("/models/u2netp.onnx", { cache: "force-cache" });
+      const response = await fetch("/api/cutout-assets/v1/u2netp.onnx", { cache: "force-cache" });
       if (!response.ok) throw new Error(`本地模型加载失败（${response.status}）`);
       const model = await response.arrayBuffer();
       progress(id, 22, "正在初始化本地抠图模型…");
@@ -34,16 +34,31 @@ async function getSession(id: number) {
         enableCpuMemArena: false,
         enableMemPattern: false,
       });
-    })();
+    })().catch((error) => {
+      sessionPromise = null;
+      throw error;
+    });
   }
   return sessionPromise;
 }
 
 async function run(request: CutoutRequest) {
   const { id, bytes, type, whiteBackground, ratio } = request;
-  const bitmap = await createImageBitmap(new Blob([bytes], { type }), {
+  let bitmap = await createImageBitmap(new Blob([bytes], { type }), {
     imageOrientation: "from-image",
   });
+  // Phone photos can decode into several hundred MB of canvas data. Keep a
+  // useful export resolution without exhausting a friend's browser memory.
+  const longestEdge = Math.max(bitmap.width, bitmap.height);
+  if (longestEdge > 3200) {
+    const resized = await createImageBitmap(bitmap, {
+      resizeWidth: Math.round(bitmap.width * 3200 / longestEdge),
+      resizeHeight: Math.round(bitmap.height * 3200 / longestEdge),
+      resizeQuality: "high",
+    });
+    bitmap.close();
+    bitmap = resized;
+  }
   const sourceWidth = bitmap.width;
   const sourceHeight = bitmap.height;
   const side = 320;

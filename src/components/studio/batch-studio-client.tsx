@@ -146,7 +146,7 @@ export function BatchStudioClient() {
     form.append("outputType", imageType);
     form.append("ratio", ratio);
     form.append("resolution", resolution);
-    form.append("expert", expert ? "1" : "0");
+    form.append("expert", String(expert));
     form.append("count", imageType === "main" ? "1" : "4");
     if (user?.email) form.append("email", user.email);
     const response = await fetch("/api/suite", {

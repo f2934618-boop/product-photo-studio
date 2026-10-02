@@ -1,7 +1,7 @@
 """Actual browser actions and downloads. Failed AI features remain BLOCKED.
 Run: python scripts/verify-friends-site.py --base https://... --out qa/live
 """
-import argparse, asyncio, json, re, zipfile
+import argparse, asyncio, io, json, re, time, zipfile
 from pathlib import Path
 from PIL import Image
 from playwright.async_api import async_playwright
@@ -21,8 +21,9 @@ forbidden = re.compile(r'登录|积分|充值|本次消耗|额度|套餐价格|�
 async def record(name, fn):
     if args.filter and not re.search(args.filter, name): return
     try:
+        started = time.monotonic()
         value = await fn()
-        report['checks'].append({'name': name, 'status': 'PASS', 'details': value})
+        report['checks'].append({'name': name, 'status': 'PASS', 'seconds': round(time.monotonic()-started, 2), 'details': value})
         print('PASS', name, flush=True)
     except Exception as error:
         report['checks'].append({'name': name, 'status': 'FAIL', 'details': str(error)[:500]})
@@ -65,6 +66,7 @@ async def main():
             await page.goto(args.base+'/batch-matting')
             await page.locator('input[type=file]').set_input_files([str(source), str(second)])
             await page.locator('.studio-primary').click()
+            print('RUN cutout: loading model and processing two source photos', flush=True)
             await page.locator('.studio-result img').nth(1).wait_for(timeout=180000)
             await settled(page)
             assert await page.locator('.studio-result img').count() == 2
@@ -111,6 +113,46 @@ async def main():
             assert image.getchannel('A').getextrema() == (0,255)
             return 'Downloaded PNG has real transparent background'
         await record('transparent PNG', transparent)
+
+        async def ratios_and_retry():
+            await page.goto(args.base+'/batch-matting', wait_until='domcontentloaded')
+            buffer = io.BytesIO()
+            photo = Image.open(source)
+            photo.thumbnail((1000, 1000))
+            photo.save(buffer, format='JPEG')
+            await page.locator('input[type=file]').set_input_files({'name':'product.jpg', 'mimeType':'image/jpeg', 'buffer':buffer.getvalue()})
+            ratio_select = page.locator('.studio-field').filter(has=page.locator('label', has_text='尺寸比例')).locator('select')
+            dimensions = {}
+            for ratio in ['1:1', '4:3', '9:16', '16:9']:
+                await ratio_select.select_option(ratio)
+                await page.locator('.studio-primary').click()
+                await settled(page)
+                assert await page.locator('.studio-result img').count() == 1
+                await page.locator('.studio-result').hover()
+                async with page.expect_download() as event:
+                    await page.locator('.studio-result-actions button').filter(has_text='下载').click()
+                target = out/('ratio-'+ratio.replace(':','-')+'.png')
+                await (await event.value).save_as(target)
+                image = Image.open(target)
+                width, height = map(int, ratio.split(':'))
+                assert abs(image.width/image.height-width/height) < .006
+                dimensions[ratio] = image.size
+            await page.locator('.studio-result').hover()
+            await page.locator('.studio-result-actions button').filter(has_text='再生成').click()
+            await settled(page)
+            assert await page.locator('.studio-result img').count() == 1
+            return {'dimensions':dimensions, 'regeneration':'actual processing completed'}
+        await record('all additional cutout ratios and regeneration', ratios_and_retry)
+
+        async def upload_validation():
+            await page.goto(args.base+'/batch-matting', wait_until='domcontentloaded')
+            await page.locator('input[type=file]').set_input_files({'name':'bad.txt', 'mimeType':'text/plain', 'buffer':b'bad'})
+            assert '请选择 JPG、PNG、WebP' in await page.locator('.studio-error').inner_text()
+            await page.locator('input[type=file]').set_input_files({'name':'too-big.png', 'mimeType':'image/png', 'buffer':b'x'*(12*1024*1024+1)})
+            assert '不超过 12MB' in await page.locator('.studio-error').inner_text()
+            assert await page.locator('.studio-primary').is_disabled()
+            return 'Unsupported type and oversized file rejected before processing'
+        await record('upload format and size validation', upload_validation)
 
         async def failure_flow():
             await page.goto(args.base+'/batch-matting')
@@ -180,7 +222,7 @@ async def main():
             await page.get_by_role('button', name=re.compile('开始创作')).click()
             await page.get_by_test_id('canvas-root-upload').set_input_files(str(second))
             await page.locator('.react-flow__node').first.wait_for(timeout=30000)
-            await page.reload()
+            await page.reload(wait_until='domcontentloaded')
             await page.locator('.react-flow__node').first.wait_for(timeout=30000)
             download_button = page.get_by_title('下载本项目', exact=True)
             async with page.expect_download() as event:
@@ -192,6 +234,49 @@ async def main():
             report['features']['万能画布'] = 'PASS: no login, real upload node, persists after reload, downloaded project ZIP'
             return 'Uploaded node saved to private anonymous workspace'
         await record('canvas upload and persistence', canvas)
+
+        async def batch():
+            await page.goto(args.base+'/studio-genesis/batch', wait_until='domcontentloaded')
+            await page.locator('input[type=file]').set_input_files(str(second))
+            await page.get_by_role('button', name='添加商品任务', exact=True).click()
+            await page.locator('input[type=file]').nth(1).set_input_files(str(source))
+            await page.locator('textarea').nth(0).fill('礼盒，保持原图文字。')
+            await page.locator('textarea').nth(1).fill('礼盒，保持原图结构。')
+            await page.locator('select').nth(2).select_option('3:4')
+            await page.locator('input[type=checkbox]').check()
+            # Observe submitted FormData while forwarding the real fetch. Chrome
+            # does not expose multipart file request bodies through post_data.
+            await page.evaluate("""() => {
+              const fetchReal = window.fetch.bind(window);
+              window.batchSubmittedFields = [];
+              window.fetch = (url, options = {}) => {
+                if (url === '/api/suite' && options.body instanceof FormData) {
+                  window.batchSubmittedFields.push(Object.fromEntries(
+                    [...options.body.entries()].filter(([key]) => ['ratio','expert','count','outputType'].includes(key))));
+                }
+                return fetchReal(url, options);
+              };
+            }""")
+            await page.get_by_role('button', name='提交批量任务', exact=True).click()
+            await no_business(page)
+            await page.get_by_role('button', name='确认提交', exact=True).click()
+            await page.get_by_role('button', name='提交批量任务', exact=True).wait_for(timeout=90000)
+            submitted = await page.evaluate('window.batchSubmittedFields')
+            assert len(submitted) == 2, 'jobs submitted: '+str(len(submitted))
+            for data in submitted:
+                assert data.get('ratio') == '3:4', str(data)
+                assert data.get('expert') == 'true', 'expert parameter ignored: '+str(data)
+                assert data.get('count') == '1', str(data)
+            await no_business(page)
+            failures = page.get_by_text('AI 服务暂时不可用，请稍后重试；快速抠图仍可使用。', exact=True)
+            if await failures.count() == 2:
+                report['features']['批量商品图'] = 'BLOCKED: both actual queued jobs failed at image provider'
+                assert await page.get_by_text('下载 ZIP', exact=True).count() == 0
+            else:
+                report['features']['批量商品图'] = 'REVIEW REQUIRED: inspect actual results'
+            await page.screenshot(path=str(out/'batch-tasks.png'), full_page=True)
+            return 'Two products submitted sequentially, parameters forwarded, no login/payment confirmation'
+        await record('batch queue and real submission parameters', batch)
 
         async def isolation():
             session = await context.request.get(args.base+'/api/workspace-session')
@@ -214,12 +299,19 @@ async def main():
             await page.get_by_role('button', name='保存草稿', exact=True).click()
             saved = await page.evaluate("JSON.parse(localStorage.getItem('novaryns-video-studio-drafts-v1') || '[]')")
             assert len(saved) == 1 and saved[0]['script'].strip()
-            await page.reload()
+            await page.reload(wait_until='domcontentloaded')
             await page.get_by_text(saved[0]['title'], exact=True).wait_for()
+            await page.get_by_text(saved[0]['title'], exact=True).click()
+            assert await page.locator('textarea').last.input_value() == saved[0]['script']
             await no_business(page)
             report['features']['电商视频：脚本草稿'] = 'PASS: editable script saved'
             status = await context.request.get(args.base+'/api/tool-status')
             report['features']['电商视频：生成'] = 'BLOCKED: no video service configured' if not (await status.json())['video'] else 'NOT TESTED'
+            if not (await status.json())['video']:
+                await page.get_by_role('button', name='立即生成视频', exact=True).click()
+                error = page.locator('p.text-red-700')
+                await error.wait_for(timeout=10000)
+                assert '暂未配置' in await error.inner_text(), await error.inner_text()
             return report['features']['电商视频：生成']
         await record('video script and true service availability', video)
 
