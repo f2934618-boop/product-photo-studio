@@ -136,7 +136,9 @@ export function BatchMattingClient() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [prompt, setPrompt] = useState("");
   const [ratio, setRatio] = useState("3:4");
-  const [mode, setMode] = useState<"cutout" | "reshoot">("cutout");
+  // Picset-style output is the primary workflow. The pixel-preserving local
+  // cutout remains available as an explicit alternative.
+  const [mode, setMode] = useState<"cutout" | "reshoot">("reshoot");
   const [aiQuality, setAiQuality] = useState<"standard" | "quality">(
     "quality"
   );
@@ -425,7 +427,7 @@ export function BatchMattingClient() {
       <section className="studio-hero">
         <span className="studio-kicker"><Sparkles />商品白底图</span>
         <h1>快速抠图或 AI 商品重拍</h1>
-        <p>快速模式保留原图像素；AI 重拍会清除手持与街景，并生成棚拍白底和自然接地阴影</p>
+        <p>AI 商品重拍生成棚拍白底和自然接地阴影；快速抠图用于完全保留原图像素</p>
       </section>
 
       <section className="studio-workspace">

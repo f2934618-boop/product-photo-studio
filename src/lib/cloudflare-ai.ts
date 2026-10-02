@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "crypto";
 import sharp from "sharp";
 import {
   CLOUDFLARE_AI_MODELS,
@@ -41,6 +42,27 @@ function buildPrompt(extra: string) {
   return preference
     ? `${PRODUCT_RESHOOT_PROMPT}\n\nAdditional styling preference, while all preservation rules above remain mandatory: ${preference}`
     : PRODUCT_RESHOOT_PROMPT;
+}
+
+function reproducibleSeed(opts: {
+  bytes: Buffer;
+  ratio: string;
+  prompt: string;
+  model: string;
+}) {
+  // The same source image + settings should lead to the same model seed. This
+  // keeps retries and duplicate uploads stable while still separating changes
+  // to the prompt, ratio, or model.
+  const digest = createHash("sha256")
+    .update(opts.bytes)
+    .update("\0")
+    .update(opts.ratio)
+    .update("\0")
+    .update(opts.prompt)
+    .update("\0")
+    .update(opts.model)
+    .digest();
+  return digest.readUInt32BE(0) % 2_000_000_000;
 }
 
 async function prepareReference(bytes: Buffer) {
@@ -180,6 +202,17 @@ export async function reshootProductWithCloudflare(opts: {
   );
   form.append("width", String(size.width));
   form.append("height", String(size.height));
+  form.append(
+    "seed",
+    String(
+      reproducibleSeed({
+        bytes: opts.bytes,
+        ratio: opts.ratio,
+        prompt: buildPrompt(opts.prompt || ""),
+        model,
+      })
+    )
+  );
 
   const endpoint = `${CLOUDFLARE_API_ROOT}/${encodeURIComponent(
     settings.accountId
