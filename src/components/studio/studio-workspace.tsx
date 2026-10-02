@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -198,10 +198,6 @@ const REFINEMENT_OPERATIONS: { value: RefinementOperation; label: string; endpoi
   { value: "dewrinkle", label: "服装去皱", endpoint: "/api/dewrinkle" },
   { value: "dewatermark", label: "去水印", endpoint: "/api/dewatermark" },
 ];
-const FRIENDS_REFINEMENT_OPERATIONS = REFINEMENT_OPERATIONS.filter(
-  (item) => item.value === "white-background"
-);
-
 class StudioRequestError extends Error {
   constructor(message: string, readonly status: number | null) {
     super(message);
@@ -313,7 +309,17 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
   const [whiteBackground, setWhiteBackground] = useState(true);
   const [refinementOperation, setRefinementOperation] = useState<RefinementOperation>("white-background");
   const [refinementScale, setRefinementScale] = useState("2");
-  const refinementOperations = FRIENDS_MODE ? FRIENDS_REFINEMENT_OPERATIONS : REFINEMENT_OPERATIONS;
+  const [toolStatus, setToolStatus] = useState({
+    generation: !FRIENDS_MODE,
+    upscale: !FRIENDS_MODE,
+  });
+  const refinementOperations = FRIENDS_MODE
+    ? REFINEMENT_OPERATIONS.filter((item) =>
+        item.value === "white-background" ||
+        (item.value === "upscale" && toolStatus.upscale) ||
+        ((item.value === "dewrinkle" || item.value === "dewatermark") && toolStatus.generation)
+      )
+    : REFINEMENT_OPERATIONS;
 
   const modeTabs = useMemo(() => {
     if (mode === "mirror") return ["单图复刻", "批量复刻", "包装复刻"];
@@ -322,6 +328,18 @@ export function StudioWorkspace({ mode }: { mode: StudioMode }) {
     if (mode === "buyer") return ["买家秀", "种草图"];
     return [];
   }, [mode]);
+
+  useEffect(() => {
+    if (!FRIENDS_MODE) return;
+    let cancelled = false;
+    fetch("/api/tool-status")
+      .then((response) => response.json())
+      .then((status) => {
+        if (!cancelled) setToolStatus({ generation: !!status.generation, upscale: !!status.upscale });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   function addFiles(list: FileList | null, reference = false) {
     if (!list) return;

@@ -164,7 +164,7 @@ export function BatchMattingClient() {
   const [results, setResults] = useState<ResultImage[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const reshootAvailable = !FRIENDS_MODE;
+  const [reshootAvailable, setReshootAvailable] = useState(!FRIENDS_MODE);
 
   useEffect(() => {
     previewUrls.current = previews;
@@ -175,6 +175,18 @@ export function BatchMattingClient() {
       previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
       localResultUrls.current.forEach((url) => URL.revokeObjectURL(url));
     };
+  }, []);
+
+  useEffect(() => {
+    if (!FRIENDS_MODE) return;
+    let cancelled = false;
+    fetch("/api/tool-status")
+      .then((response) => response.json())
+      .then((status) => {
+        if (!cancelled) setReshootAvailable(!!status.generation);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   function addFiles(list: FileList | null) {

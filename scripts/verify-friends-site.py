@@ -15,7 +15,7 @@ out = Path(args.out).resolve()
 out.mkdir(parents=True, exist_ok=True)
 source = Path('C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-401a8c28-fdc4-48e5-87e7-ae152ba47f20.jpg')
 second = Path('C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-0ce4fee1-3213-4712-b4bd-8c8f8e3eb934.jpg')
-report = {'base': args.base, 'checks': [], 'features': {}, 'page_errors': []}
+report = {'base': args.base, 'browser': 'Playwright fallback: Browser plugin not available', 'checks': [], 'features': {}, 'page_errors': []}
 forbidden = re.compile(r'登录|积分|充值|本次消耗|额度|套餐价格|会员特惠')
 
 async def record(name, fn):
@@ -44,6 +44,11 @@ async def main():
         page = await context.new_page()
         page.on('pageerror', lambda error: report['page_errors'].append(str(error)))
 
+        status_response = await context.request.get(args.base + '/api/tool-status')
+        assert status_response.status == 200
+        tool_status = await status_response.json()
+        report['tool_status'] = tool_status
+
         visible_routes = ['/batch-matting','/refinement-studio','/canvas-studio']
         disabled_routes = ['/studio-genesis','/aesthetic-mirror','/sku-replace','/clothing-studio','/buyer-show','/batch-translation','/video-studio','/studio-genesis/batch']
 
@@ -63,8 +68,47 @@ async def main():
                 await page.goto(args.base+route, wait_until='domcontentloaded')
                 assert page.url.endswith('/batch-matting'), route+' -> '+page.url
                 await no_business(page)
-            return 'Unavailable AI routes redirect to the working white-background tool'
+            return 'Untested AI-only pages redirect to the working white-background tool'
         await record('disabled AI routes hidden', disabled_redirects)
+
+        async def product_reshoot_gate():
+            await page.goto(args.base+'/batch-matting', wait_until='domcontentloaded')
+            await no_business(page)
+            has_button = await page.get_by_role('button', name=re.compile('AI 商品重拍')).count()
+            if not tool_status.get('generation'):
+                assert has_button == 0, 'AI reshoot button is visible without a live generation backend'
+                body = {
+                    'image': {
+                        'name': source.name,
+                        'mimeType': 'image/jpeg',
+                        'buffer': source.read_bytes(),
+                    },
+                    'ratio': '4:3',
+                    'quality': 'standard',
+                }
+                response = await context.request.post(args.base+'/api/product-reshoot', multipart=body)
+                assert response.status == 503, f'unexpected status {response.status}'
+                text = await response.text()
+                assert not forbidden.search(text), text[:240]
+                report['features']['AI 商品重拍'] = 'BLOCKED: hidden because no live image generation backend is configured'
+                return 'Generation backend unavailable: UI hides AI reshoot and API fails closed with 503'
+            assert has_button > 0, 'AI reshoot button hidden although generation backend is ready'
+            await page.locator('input[type=file]').set_input_files(str(source))
+            await page.get_by_role('button', name=re.compile('AI 商品重拍')).click()
+            await page.locator('.studio-primary').click()
+            await page.locator('.studio-result img').wait_for(timeout=300000)
+            await settled(page)
+            await page.locator('.studio-result').first.hover()
+            async with page.expect_download(timeout=120000) as event:
+                await page.locator('.studio-result-actions button').filter(has_text='下载').first.click()
+            target = out/'ai-product-reshoot.png'
+            await (await event.value).save_as(target)
+            image = Image.open(target).convert('RGBA')
+            assert image.width > 256 and image.height > 256
+            assert image.getpixel((0,0))[:3] == (255,255,255)
+            report['features']['AI 商品重拍'] = 'PASS: generated real image and downloaded PNG'
+            return {'output': str(target), 'size': image.size}
+        await record('AI product reshoot availability', product_reshoot_gate)
 
         async def billing_redirects():
             for route in ['/sign-in','/pricing','/account','/invite']:

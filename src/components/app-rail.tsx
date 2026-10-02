@@ -45,13 +45,11 @@ const ALL_ITEMS: NavItem[] = [
   { href: "/video-studio", label: "电商视频", icon: Play, badge: "Beta", aliases: ["/generate", "/ecommerce-video"] },
 ];
 
-const FRIENDS_ITEMS: NavItem[] = [
+const FRIENDS_BASE_ITEMS: NavItem[] = [
   { href: "/batch-matting", label: "商品白底图", icon: Scissors, aliases: ["/cutout", "/batch-cutout"] },
   { href: "/refinement-studio", label: "图片精修", icon: Wand2, aliases: ["/image-retouch"] },
   { href: "/canvas-studio", label: "万能画布", icon: PenTool, aliases: ["/canvas", "/history"] },
 ];
-
-const ITEMS = FRIENDS_MODE ? FRIENDS_ITEMS : ALL_ITEMS;
 
 function activeFor(path: string, item: NavItem) {
   return path === item.href || path.startsWith(`${item.href}/`) || !!item.aliases?.some((p) => path === p || path.startsWith(`${p}/`));
@@ -97,6 +95,7 @@ export function AppRail() {
   const path = usePathname() || "/studio-genesis";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const items = FRIENDS_MODE ? FRIENDS_BASE_ITEMS : ALL_ITEMS;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("studio:sidebar-collapsed") === "1";
@@ -131,7 +130,7 @@ export function AppRail() {
         <Brand collapsed={collapsed} />
 
         <nav className="picset-nav">
-          {ITEMS.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             const active = activeFor(path, item);
             return (
@@ -201,7 +200,7 @@ export function AppRail() {
           />
           <div className="fixed inset-x-0 top-16 z-[65] max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-zinc-200 bg-[#f5f5f6] p-3 shadow-xl min-[761px]:!hidden">
             <nav className="space-y-1" aria-label="移动端创作工具">
-              {ITEMS.map((item) => {
+              {items.map((item) => {
                 const Icon = item.icon;
                 const active = activeFor(path, item);
                 return (
